@@ -1,0 +1,16 @@
+@prb/test/=lib/prb-test/src/
+forge-std/=lib/forge-std/src/
+@aragon/osx/=lib/osx/packages/contracts/src
+datetime/=lib/BokkyPooBahsDateTimeLibrary/contracts
+
+@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+ds-test/=lib/forge-std/lib/ds-test/src/
+ens-contracts/=lib/ens-contracts/contracts/
+erc4626-tests/=lib/openzeppelin-contracts-upgradeable/lib/erc4626-tests/
+openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/
+openzeppelin-contracts/=lib/openzeppelin-contracts/
+
+
+
+
