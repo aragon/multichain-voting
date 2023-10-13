@@ -1,0 +1,105 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+pragma solidity 0.8.17;
+
+import { Vm } from "forge-std/Test.sol";
+import { console2 } from "forge-std/console2.sol";
+
+import { IPluginSetup, PluginSetup } from "@aragon/osx/framework/plugin/setup/PluginSetup.sol";
+import { DAO } from "@aragon/osx/core/dao/DAO.sol";
+import { DAOFactory } from "@aragon/osx/framework/dao/DAOFactory.sol";
+import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
+import { PluginRepo } from "@aragon/osx/framework/plugin/repo/PluginRepo.sol";
+import { PluginSetupRef } from "@aragon/osx/framework/plugin/setup/PluginSetupProcessorHelpers.sol";
+
+import { AragonTest } from "./AragonTest.sol";
+
+contract AragonE2E is AragonTest {
+    bytes internal constant NON_EMPTY_BYTES = "0x1234";
+    uint256 internal constant _FORK_BLOCK = 18_335_949; // fork block in .env takes precedence
+
+    DAOFactory internal daoFactory;
+    PluginRepoFactory internal repoFactory;
+
+    function setUp() public virtual {
+        bytes32 network = keccak256(abi.encodePacked(vm.envString("FORKING_NETWORK")));
+        address[] memory protocol;
+
+        if (network == keccak256(abi.encodePacked("mainnet"))) protocol = vm.envAddress("MAINNET", ",");
+        else if (network == keccak256(abi.encodePacked("goerli"))) protocol = vm.envAddress("GOERLI", ",");
+        else if (network == keccak256(abi.encodePacked("sepolia"))) protocol = vm.envAddress("SEPOLIA", ",");
+        else if (network == keccak256(abi.encodePacked("polygon"))) protocol = vm.envAddress("POLYGON", ",");
+        else if (network == keccak256(abi.encodePacked("mumbai"))) protocol = vm.envAddress("MUMBAI", ",");
+        else if (network == keccak256(abi.encodePacked("baseGoerli"))) protocol = vm.envAddress("BASE_GOERLI", ",");
+        else if (network == keccak256(abi.encodePacked("baseMainnet"))) protocol = vm.envAddress("BASE_MAINNET", ",");
+        else revert("unknown network");
+
+        daoFactory = DAOFactory(protocol[0]);
+        repoFactory = PluginRepoFactory(protocol[1]);
+
+        vm.createSelectFork(vm.rpcUrl("mainnet"), vm.envOr("FORK_BLOCK", _FORK_BLOCK));
+
+        console2.log("======================== E2E SETUP ======================");
+        console2.log("Forking from: ", vm.envString("FORKING_NETWORK"));
+        console2.log("from block:   ", vm.envOr("FORK_BLOCK", _FORK_BLOCK));
+        console2.log("daoFactory:   ", address(daoFactory));
+        console2.log("repoFactory:  ", address(repoFactory));
+        console2.log("=========================================================");
+    }
+
+    function deployRepo(string memory _repoSubdomain, address _pluginSetup) internal returns (PluginRepo repo) {
+        repo = repoFactory.createPluginRepoWithFirstVersion({
+            _subdomain: _repoSubdomain,
+            _pluginSetup: _pluginSetup,
+            _maintainer: address(this),
+            _releaseMetadata: NON_EMPTY_BYTES,
+            _buildMetadata: NON_EMPTY_BYTES
+        });
+    }
+
+    function deployDao(PluginRepo repo, bytes memory installData) internal returns (DAO dao, address plugin) {
+        // 1. dao settings
+        DAOFactory.DAOSettings memory daoSettings = DAOFactory.DAOSettings({
+            trustedForwarder: address(0),
+            daoURI: "https://mockDaoURL.com",
+            subdomain: "mockdao888",
+            metadata: EMPTY_BYTES
+        });
+
+        // 2. dao plugin settings
+        DAOFactory.PluginSettings[] memory installSettings = new DAOFactory.PluginSettings[](1);
+        installSettings[0] = DAOFactory.PluginSettings({
+            pluginSetupRef: PluginSetupRef({ versionTag: getLatestTag(repo), pluginSetupRepo: repo }),
+            data: installData
+        });
+
+        // 3. create dao and record the emitted events
+        vm.recordLogs();
+        dao = daoFactory.createDao(daoSettings, installSettings);
+
+        // 4. get the plugin address
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (entries[i].topics[0] == keccak256("InstallationApplied(address,address,bytes32,bytes32)")) {
+                // the plugin address is the third topic
+                plugin = address(uint160(uint256(entries[i].topics[2])));
+            }
+        }
+    }
+
+    function deployRepoAndDao(
+        string memory _repoSubdomain,
+        address _pluginSetup,
+        bytes memory pluginInitData
+    )
+        internal
+        returns (DAO dao, PluginRepo repo, address plugin)
+    {
+        repo = deployRepo(_repoSubdomain, _pluginSetup);
+        (dao, plugin) = deployDao(repo, pluginInitData);
+    }
+
+    function getLatestTag(PluginRepo repo) internal view returns (PluginRepo.Tag memory) {
+        PluginRepo.Version memory v = repo.getLatestVersion(repo.latestRelease());
+        return v.tag;
+    }
+}
