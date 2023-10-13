@@ -9,12 +9,12 @@ import { DAOMock } from "@aragon/osx/test/dao/DAOMock.sol";
 import { IPluginSetup } from "@aragon/osx/framework/plugin/setup/PluginSetup.sol";
 import { DaoUnauthorized } from "@aragon/osx/core/utils/auth.sol";
 
-import { AragonTestBase } from "./base/AragonTestBase.sol";
+import { AragonTest } from "./base/AragonTest.sol";
 
 import { SimpleStorageSetup } from "../src/SimpleStorageSetup.sol";
 import { SimpleStorage } from "../src/SimpleStorage.sol";
 
-abstract contract SimpleStorageTest is AragonTestBase {
+abstract contract SimpleStorageTest is AragonTest {
     DAO internal dao;
     SimpleStorage internal plugin;
     SimpleStorageSetup internal setup;
@@ -24,7 +24,7 @@ abstract contract SimpleStorageTest is AragonTestBase {
         setup = new SimpleStorageSetup();
         bytes memory setupData = abi.encode(NUMBER);
 
-        (DAO _dao, address _plugin) = _createDaoWithPlugin(setup, setupData);
+        (DAO _dao, address _plugin) = createMockDaoWithPlugin(setup, setupData);
 
         dao = _dao;
         plugin = SimpleStorage(_plugin);
