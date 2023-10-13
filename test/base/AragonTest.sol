@@ -7,10 +7,10 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 
 import { Test } from "forge-std/Test.sol";
 
-contract AragonTestBase is Test {
+contract AragonTest is Test {
     bytes internal EMPTY_BYTES;
 
-    function _createDaoWithPlugin(IPluginSetup setup, bytes memory setupData) internal returns (DAO, address) {
+    function createMockDaoWithPlugin(IPluginSetup setup, bytes memory setupData) internal returns (DAO, address) {
         DAO _dao = DAO(payable(new ERC1967Proxy(address(new DAO()), EMPTY_BYTES)));
         _dao.initialize(EMPTY_BYTES, address(this), address(0), "");
 
