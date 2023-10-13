@@ -4,7 +4,6 @@ pragma solidity 0.8.17;
 import { Vm } from "forge-std/Test.sol";
 import { console2 } from "forge-std/console2.sol";
 
-import { IPluginSetup, PluginSetup } from "@aragon/osx/framework/plugin/setup/PluginSetup.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
 import { DAOFactory } from "@aragon/osx/framework/dao/DAOFactory.sol";
 import { PluginRepoFactory } from "@aragon/osx/framework/plugin/repo/PluginRepoFactory.sol";
@@ -20,6 +19,8 @@ contract AragonE2E is AragonTest {
     DAOFactory internal daoFactory;
     PluginRepoFactory internal repoFactory;
 
+    error UnknownNetwork();
+
     function setUp() public virtual {
         bytes32 network = keccak256(abi.encodePacked(vm.envString("FORKING_NETWORK")));
         address[] memory protocol;
@@ -31,7 +32,7 @@ contract AragonE2E is AragonTest {
         else if (network == keccak256(abi.encodePacked("mumbai"))) protocol = vm.envAddress("MUMBAI", ",");
         else if (network == keccak256(abi.encodePacked("baseGoerli"))) protocol = vm.envAddress("BASE_GOERLI", ",");
         else if (network == keccak256(abi.encodePacked("baseMainnet"))) protocol = vm.envAddress("BASE_MAINNET", ",");
-        else revert("unknown network");
+        else revert UnknownNetwork();
 
         daoFactory = DAOFactory(protocol[0]);
         repoFactory = PluginRepoFactory(protocol[1]);
@@ -46,6 +47,10 @@ contract AragonE2E is AragonTest {
         console2.log("=========================================================");
     }
 
+    /// @notice Deploys a new PluginRepo with the first version
+    /// @param _repoSubdomain The subdomain for the new PluginRepo
+    /// @param _pluginSetup The address of the plugin setup contract
+    /// @return repo The address of the newly created PluginRepo
     function deployRepo(string memory _repoSubdomain, address _pluginSetup) internal returns (PluginRepo repo) {
         repo = repoFactory.createPluginRepoWithFirstVersion({
             _subdomain: _repoSubdomain,
@@ -56,6 +61,11 @@ contract AragonE2E is AragonTest {
         });
     }
 
+    /// @notice Deploys a DAO with the given PluginRepo and installation data
+    /// @param repo The PluginRepo to use for the DAO
+    /// @param installData The installation data for the DAO
+    /// @return dao The newly created DAO
+    /// @return plugin The plugin used in the DAO
     function deployDao(PluginRepo repo, bytes memory installData) internal returns (DAO dao, address plugin) {
         // 1. dao settings
         DAOFactory.DAOSettings memory daoSettings = DAOFactory.DAOSettings({
@@ -86,6 +96,10 @@ contract AragonE2E is AragonTest {
         }
     }
 
+    /// @notice Deploys a new PluginRepo and a DAO
+    /// @param _repoSubdomain The subdomain for the new PluginRepo
+    /// @param _pluginSetup The address of the plugin setup contract
+    /// @param pluginInitData The initialization data for the plugin
     function deployRepoAndDao(
         string memory _repoSubdomain,
         address _pluginSetup,
@@ -98,6 +112,9 @@ contract AragonE2E is AragonTest {
         (dao, plugin) = deployDao(repo, pluginInitData);
     }
 
+    /// @notice Fetches the latest tag from the PluginRepo
+    /// @param repo The PluginRepo to fetch the latest tag from
+    /// @return The latest tag from the PluginRepo
     function getLatestTag(PluginRepo repo) internal view returns (PluginRepo.Tag memory) {
         PluginRepo.Version memory v = repo.getLatestVersion(repo.latestRelease());
         return v.tag;
