@@ -1,0 +1,27 @@
+{
+  "ui": {},
+  "change": "NA",
+  "pluginSetup": {
+    "prepareInstallation": {
+      "description": "No input is required for the update.",
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "number",
+          "type": "uint256",
+          "description": "Number used for storage"
+        }
+      ]
+    },
+    "prepareUninstallation": {
+      "description": "No input is required for the uninstallation.",
+      "inputs": []
+    },
+    "prepareUpdate": {
+      "1": {
+        "description": "No input is required for the update.",
+        "inputs": []
+      }
+    }
+  }
+}
