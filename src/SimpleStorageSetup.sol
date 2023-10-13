@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-pragma solidity ^0.8.8;
+pragma solidity ^0.8.17;
 
 import { PermissionLib } from "@aragon/osx/core/permission/PermissionLib.sol";
 import { PluginSetup, IPluginSetup } from "@aragon/osx/framework/plugin/setup/PluginSetup.sol";
@@ -8,10 +8,10 @@ import { SimpleStorage } from "./SimpleStorage.sol";
 
 /// @title SimpleStorageSetup build 1
 contract SimpleStorageSetup is PluginSetup {
-    address private immutable simpleStorageImplementation;
+    address private immutable IMPLEMEMTATION;
 
     constructor() {
-        simpleStorageImplementation = address(new SimpleStorage());
+        IMPLEMEMTATION = address(new SimpleStorage());
     }
 
     /// @inheritdoc IPluginSetup
@@ -24,9 +24,8 @@ contract SimpleStorageSetup is PluginSetup {
     {
         uint256 number = abi.decode(_data, (uint256));
 
-        plugin = createERC1967Proxy(
-            simpleStorageImplementation, abi.encodeWithSelector(SimpleStorage.initialize.selector, _dao, number)
-        );
+        plugin =
+            createERC1967Proxy(IMPLEMEMTATION, abi.encodeWithSelector(SimpleStorage.initialize.selector, _dao, number));
 
         PermissionLib.MultiTargetPermission[] memory permissions = new PermissionLib.MultiTargetPermission[](1);
 
@@ -63,6 +62,6 @@ contract SimpleStorageSetup is PluginSetup {
 
     /// @inheritdoc IPluginSetup
     function implementation() external view returns (address) {
-        return simpleStorageImplementation;
+        return IMPLEMEMTATION;
     }
 }
