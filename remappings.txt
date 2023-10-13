@@ -1,7 +1,7 @@
 @prb/test/=lib/prb-test/src/
 forge-std/=lib/forge-std/src/
 @aragon/osx/=lib/osx/packages/contracts/src
-datetime/=lib/BokkyPooBahsDateTimeLibrary/contracts
+@ensdomains/ens-contracts/=lib/ens-contracts/
 
 @openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
