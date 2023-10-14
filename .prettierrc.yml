@@ -1,7 +1,17 @@
-bracketSpacing: true
-printWidth: 120
-proseWrap: "always"
-singleQuote: false
-tabWidth: 2
-trailingComma: "all"
-useTabs: false
+bracketSpacing: false
+singleQuote: true
+arrowParens: avoid
+
+overrides:
+  - files: '*.sol'
+    options:
+      printWidth: 100
+      tabWidth: 4
+      useTabs: false
+      singleQuote: false
+  - files: '*.md'
+    options:
+      printWidth: 100
+      tabWidth: 2
+      useTabs: false
+      singleQuote: true
