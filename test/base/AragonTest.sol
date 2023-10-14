@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.17;
+pragma solidity 0.8.21;
 
 import { IPluginSetup, PluginSetup } from "@aragon/osx/framework/plugin/setup/PluginSetup.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
@@ -8,7 +8,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { Test } from "forge-std/Test.sol";
 
 contract AragonTest is Test {
-    bytes internal constant EMPTY_BYTES;
+    bytes internal constant EMPTY_BYTES = "";
 
     /// @notice Creates a mock DAO with a plugin.
     /// @param setup The plugin setup interface.
