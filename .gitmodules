@@ -20,3 +20,6 @@
 	path = lib/ens-contracts
 	url = https://github.com/ensdomains/ens-contracts
 
+[submodule "lib/solidity-examples"]
+	path = lib/solidity-examples
+	url = https://github.com/LayerZero-Labs/solidity-examples
