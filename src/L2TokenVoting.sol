@@ -5,13 +5,12 @@ import { IVotesUpgradeable } from "@openzeppelin/contracts-upgradeable/governanc
 import { IMembership } from "@aragon/osx/core/plugin/membership/IMembership.sol";
 import {  SafeCastUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-
 import { IMembership } from "@aragon/osx/core/plugin/membership/IMembership.sol";
 import { IDAO } from "@aragon/osx/core/dao/IDAO.sol";
 import { RATIO_BASE, _applyRatioCeiled } from "@aragon/osx/plugins/utils/Ratio.sol";
 import {IMajorityVoting} from "@aragon/osx/plugins/governance/majority-voting/IMajorityVoting.sol";
-
 import { L2MajorityVotingBase } from "./L2MajorityVotingBase.sol";
+import { NonblockingLzApp } from "./lzApp/NonblockingLzApp.sol";
 
 /**
  * @title L2TokenVoting
@@ -19,7 +18,7 @@ import { L2MajorityVotingBase } from "./L2MajorityVotingBase.sol";
  * @notice Budgeting module for efficient spending from an Aragon OSx DAO using allowance chains
  * to delegate spending authority
  */
-contract L2TokenVoting is IMembership, L2MajorityVotingBase {
+contract L2TokenVoting is IMembership, L2MajorityVotingBase, NonblockingLzApp {
  using SafeCastUpgradeable for uint256;
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
@@ -48,6 +47,16 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase {
         __MajorityVotingBase_init(_dao, _votingSettings, _bridgeDAOSettings);
 
         votingToken = _token;
+        _setEndpoint(address(_bridgeDAOSettings.lzBridge));
+        bytes memory remoteAndLocalAddresses = abi.encode(_bridgeDAOSettings.parentDAO, address(this));
+        _setTrustedRemoteAddress(1, remoteAndLocalAddresses);
+        remoteAndLocalAddresses = abi.encode(address(this), _bridgeDAOSettings.parentDAO);
+        // _setTrustedRemoteAddress(uint16(block.chainid), remoteAndLocalAddresses);
+        _setTrustedRemoteAddress(1, remoteAndLocalAddresses);
+        remoteAndLocalAddresses = abi.encode(_bridgeDAOSettings.parentPlugin, address(this));
+        _setTrustedRemoteAddress(1, remoteAndLocalAddresses);
+        remoteAndLocalAddresses = abi.encode(address(this), _bridgeDAOSettings.parentPlugin);
+        _setTrustedRemoteAddress(1, remoteAndLocalAddresses);
 
         emit MembershipContractAnnounced({definingContract: address(_token)});
     }
@@ -78,8 +87,7 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase {
     function _createProposal(
         uint256 _parentProposalId,
         uint64 _startDate,
-        uint64 _endDate,
-        bool _tryEarlyExecution
+        uint64 _endDate
     ) internal override {
         // Check that either `_msgSender` owns enough tokens or has enough voting power from being a delegatee.
         {
@@ -122,6 +130,7 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase {
         // Store proposal related information
         Proposal storage proposal_ = proposals[proposalId];
 
+        proposal_.parentProposalId = _parentProposalId;
         proposal_.parameters.startDate = _startDate;
         proposal_.parameters.endDate = _endDate;
         proposal_.parameters.snapshotBlock = snapshotBlock.toUint64();
@@ -220,4 +229,23 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase {
         return true;
     }
 
+    function _nonblockingLzReceive(
+        uint16 _srcChainId, 
+        bytes memory _srcAddress, 
+        uint64, 
+        bytes memory _payload
+    ) internal override {
+        (
+            uint256 _parentProposalId,
+            uint64 _startDate,
+            uint64 _endDate,
+            bool _tryEarlyExecution
+        ) = abi.decode(_payload, (uint256, uint64, uint64, bool));
+
+        _createProposal(
+            _parentProposalId,
+            _startDate,
+            _endDate
+        );
     }
+}

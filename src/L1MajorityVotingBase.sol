@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.8;
 
+import { console2 } from "forge-std/console2.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -137,7 +138,7 @@ abstract contract L1MajorityVotingBase is
     struct BridgeSettings {
         uint16 chainId;
         address bridge;
-        IDAO childDAO;
+        address childDAO;
         address childPlugin;
     }
 
@@ -196,6 +197,9 @@ abstract contract L1MajorityVotingBase is
     /// @notice The ID of the permission required to call the `updateVotingSettings` function.
     bytes32 public constant UPDATE_VOTING_SETTINGS_PERMISSION_ID =
         keccak256("UPDATE_VOTING_SETTINGS_PERMISSION");
+    /// @notice The ID of the permission required to call the `updateBridgeSettings` function.
+    bytes32 public constant UPDATE_BRIDGE_SETTINGS_PERMISSION_ID =
+        keccak256("UPDATE_BRIDGE_SETTINGS_PERMISSION");
 
     /// @notice A mapping between proposal IDs and proposal information.
     mapping(uint256 => Proposal) internal proposals;
@@ -204,7 +208,7 @@ abstract contract L1MajorityVotingBase is
     VotingSettings private votingSettings;
 
     /// @notice The struct storing the bridge settings.
-    BridgeSettings internal bridgeSettings;
+    BridgeSettings public bridgeSettings;
 
     /// @notice Thrown if a date is out of bounds.
     /// @param limit The limit value.
@@ -254,12 +258,10 @@ abstract contract L1MajorityVotingBase is
     /// @param _votingSettings The voting settings.
     function __MajorityVotingBase_init(
         IDAO _dao,
-        VotingSettings calldata _votingSettings,
-        BridgeSettings calldata _bridgeSettings
+        VotingSettings calldata _votingSettings
     ) internal onlyInitializing {
         __PluginUUPSUpgradeable_init(_dao);
         _updateVotingSettings(_votingSettings);
-        bridgeSettings = _bridgeSettings;
     }
 
     /// @notice Checks if this or the parent contract supports an interface by its ID.
@@ -440,6 +442,8 @@ abstract contract L1MajorityVotingBase is
     ) external virtual auth(UPDATE_VOTING_SETTINGS_PERMISSION_ID) {
         _updateVotingSettings(_votingSettings);
     }
+
+    
 
     /// @notice Creates a new majority voting proposal.
     /// @param _metadata The metadata of the proposal.

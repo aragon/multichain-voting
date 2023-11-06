@@ -6,9 +6,11 @@ import { console2 } from "forge-std/console2.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import { DAO } from "@aragon/osx/core/dao/DAO.sol";
+import { IDAO } from "@aragon/osx/core/dao/IDAO.sol";
 import { DAOMock } from "@aragon/osx/test/dao/DAOMock.sol";
 import { IPluginSetup } from "@aragon/osx/framework/plugin/setup/PluginSetup.sol";
 import { DaoUnauthorized } from "@aragon/osx/core/utils/auth.sol";
+import {IMajorityVoting} from "@aragon/osx/plugins/governance/majority-voting/IMajorityVoting.sol";
 
 import { AragonTest } from "./base/AragonTest.sol";
 
@@ -16,41 +18,146 @@ import { L1TokenVotingSetup } from "../src/L1TokenVotingSetup.sol";
 import { L1MajorityVotingBase } from "../src/L1MajorityVotingBase.sol";
 import { L1TokenVoting } from "../src/L1TokenVoting.sol";
 
+import { L2TokenVotingSetup } from "../src/L2TokenVotingSetup.sol";
+import { L2MajorityVotingBase } from "../src/L2MajorityVotingBase.sol";
+import { L2TokenVoting } from "../src/L2TokenVoting.sol";
+
 import {GovernanceERC20} from "@aragon/osx/token/ERC20/governance/GovernanceERC20.sol";
 import {GovernanceWrappedERC20} from "@aragon/osx/token/ERC20/governance/GovernanceWrappedERC20.sol";
+
+import {LayerZeroBridgeMock} from "./mocks/LayerZeroBridgeMock.sol";
 
 abstract contract L1TokenVotingTest is AragonTest {
     DAO internal dao;
     L1TokenVoting internal plugin;
     L1TokenVotingSetup internal setup;
-    uint256 internal constant NUMBER = 420;
-    GovernanceERC20 governanceERC20Base;
+    GovernanceERC20 l1governanceERC20Base;
+    GovernanceERC20 l2governanceERC20Base;
     GovernanceWrappedERC20 governanceWrappedERC20Base;
+    LayerZeroBridgeMock layerZeroBridge;
+    DAO internal l2dao;
+    L2TokenVoting internal l2plugin;
+    L2TokenVotingSetup internal l2setup;
+    address bob = address(0xb0b);
+    address dad = address(0xdad);
+    address dead = address(0xdead);
 
-    function setUp() public virtual {
-        address dead = address(0xdead);
-        address bob = address(0xb0b);
 
+    function setUpL1() public virtual {
+        vm.roll(1);
         address[] memory holders = new address[](1);
         holders[0] = bob;
         uint256[] memory holdersAmount = new uint256[](1);
         holdersAmount[0] = 10 ether;
-        governanceERC20Base = new GovernanceERC20(DAO(payable(dead)), "Dead", "DED", GovernanceERC20.MintSettings(holders, holdersAmount));
-        governanceWrappedERC20Base = new GovernanceWrappedERC20(IERC20Upgradeable(address(governanceERC20Base)), "Dead", "DED");
+        l1governanceERC20Base = new GovernanceERC20(DAO(payable(dead)), "Dead", "DED", GovernanceERC20.MintSettings(holders, holdersAmount));
+        governanceWrappedERC20Base = new GovernanceWrappedERC20(IERC20Upgradeable(address(l1governanceERC20Base)), "Dead", "DED");
 
-        setup = new L1TokenVotingSetup(governanceERC20Base, governanceWrappedERC20Base);
-        bytes memory setupData = abi.encode(NUMBER);
+        L1MajorityVotingBase.VotingSettings memory votingSettings = L1MajorityVotingBase.VotingSettings(
+            L1MajorityVotingBase.VotingMode.EarlyExecution,
+            uint32(0),
+            uint32(1),
+            61 minutes,
+            uint256(0)
+        );
+
+        L1TokenVotingSetup.TokenSettings memory tokenSettings = L1TokenVotingSetup.TokenSettings(address(l1governanceERC20Base), "", "");
+        address[] memory receivers = new address[](1);
+        receivers[0] = bob;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 10 ether;
+        GovernanceERC20.MintSettings memory mintSettings = GovernanceERC20.MintSettings(receivers, amounts);
+
+        setup = new L1TokenVotingSetup(l1governanceERC20Base, governanceWrappedERC20Base);
+        bytes memory setupData = abi.encode(votingSettings, tokenSettings, mintSettings);
 
         (DAO _dao, address _plugin) = createMockDaoWithPlugin(setup, setupData);
 
         dao = _dao;
         plugin = L1TokenVoting(_plugin);
+        layerZeroBridge = new LayerZeroBridgeMock();
+        assertEq(address(plugin.getVotingToken()), address(l1governanceERC20Base), "Token is not set properly");
+    }
+
+    function setUpL2() public virtual {
+        address[] memory holders = new address[](1);
+        holders[0] = dad;
+        uint256[] memory holdersAmount = new uint256[](1);
+        holdersAmount[0] = 10 ether;
+        l2governanceERC20Base = new GovernanceERC20(DAO(payable(dead)), "Dead", "DED", GovernanceERC20.MintSettings(holders, holdersAmount));
+        governanceWrappedERC20Base = new GovernanceWrappedERC20(IERC20Upgradeable(address(l2governanceERC20Base)), "Dead", "DED");
+
+        L2MajorityVotingBase.VotingSettings memory votingSettings = L2MajorityVotingBase.VotingSettings(
+            L2MajorityVotingBase.VotingMode.EarlyExecution,
+            uint32(0),
+            uint32(1),
+            61 minutes,
+            uint256(0)
+        );
+
+        L2TokenVotingSetup.TokenSettings memory tokenSettings = L2TokenVotingSetup.TokenSettings(address(l2governanceERC20Base), "", "");
+        address[] memory receivers = new address[](1);
+        receivers[0] = dad;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 10 ether;
+        GovernanceERC20.MintSettings memory mintSettings = GovernanceERC20.MintSettings(receivers, amounts);
+
+        L2MajorityVotingBase.BridgeDAOSettings memory bridgeDAOSettings = L2MajorityVotingBase.BridgeDAOSettings(dao, address(plugin), layerZeroBridge);
+
+        l2setup = new L2TokenVotingSetup(l2governanceERC20Base, governanceWrappedERC20Base);
+        bytes memory setupData = abi.encode(votingSettings, tokenSettings, mintSettings, bridgeDAOSettings);
+
+        (DAO _dao, address _l2plugin) = createMockDaoWithPlugin(l2setup, setupData);
+
+        l2dao = _dao;
+        l2plugin = L2TokenVoting(_l2plugin);
+    }
+
+    function setUpPostInstallation() public virtual {
+        vm.startPrank(bob);
+        l1governanceERC20Base.delegate(bob);
+        vm.warp(block.timestamp + 100);
+        vm.roll(block.number + 2);
+        bytes memory _metadata = abi.encodeWithSelector(
+            L1TokenVoting.updateBridgeSettings.selector,
+            uint16(1), // Or other chain really
+            address(layerZeroBridge),
+            address(l2dao),
+            address(l2plugin)
+        );
+        IDAO.Action[] memory _actions = new IDAO.Action[](1);
+        _actions[0] = IDAO.Action(
+            address(plugin),
+            0,
+            _metadata
+        );
+        uint256 _allowFailureMap = 0;
+        uint64 _startDate = uint64(block.timestamp);
+        uint64 _endDate = uint64(block.timestamp + 5000);
+        L1MajorityVotingBase.VoteOption _voteOption = IMajorityVoting.VoteOption.Yes;
+        bool _tryEarlyExecution = true;
+        uint256 proposalId = plugin.createProposal(_metadata, _actions, _allowFailureMap, _startDate, _endDate, _voteOption, _tryEarlyExecution);
+
+        (
+            bool open, 
+            bool executed, 
+            L1MajorityVotingBase.ProposalParameters memory params,
+            L1MajorityVotingBase.Tally memory tally,
+            IDAO.Action[] memory actions,
+            uint256 allowFailureMap
+        ) = plugin.getProposal(proposalId);
+
+        (uint16 chainId, address _bridge, address _dao, address _childPlugin) = plugin.bridgeSettings();
+
+        assertEq(_bridge, address(layerZeroBridge), "Bridge is not properly set");
+        vm.stopPrank();
     }
 }
 
 contract L1TokenVotingInitializeTest is L1TokenVotingTest {
-    function setUp() public override {
-        super.setUp();
+    function setUp() public {
+        super.setUpL1();
+        super.setUpL2();
+        super.setUpPostInstallation();
     }
 
     function test_initialize() public {
@@ -59,7 +166,6 @@ contract L1TokenVotingInitializeTest is L1TokenVotingTest {
     }
 
     function test_reverts_if_reinitialized() public {
-        vm.expectRevert("Initializable: contract is already initialized");
         L1MajorityVotingBase.VotingSettings memory votingSettings = L1MajorityVotingBase.VotingSettings(
             L1MajorityVotingBase.VotingMode.VoteReplacement,
             uint32(0),
@@ -67,33 +173,46 @@ contract L1TokenVotingInitializeTest is L1TokenVotingTest {
             uint64(1),
             uint256(0)
         );
-        L1MajorityVotingBase.BridgeSettings memory bridgeSettings = L1MajorityVotingBase.BridgeSettings(1, address(0), DAO(payable(address(0))), address(0));
-        plugin.initialize(dao, votingSettings, governanceERC20Base, bridgeSettings);
-    }
-}
-
-contract SimpleStorageStoreNumberTest is L1TokenVotingTest {
-    function setUp() public override {
-        super.setUp();
+        vm.expectRevert("Initializable: contract is already initialized");
+        plugin.initialize(dao, votingSettings, l1governanceERC20Base);
     }
 
-    function test_store_number() public {
-        vm.prank(address(dao));
-        // plugin.storeNumber(69);
-        // assertEq(plugin.number(), 69);
-    }
-
-    function test_reverts_if_not_auth() public {
-        // error DaoUnauthorized({
-        //     dao: address(_dao),
-        //     where: _where,
-        //     who: _who,
-        //     permissionId: _permissionId
-        // });
-        vm.expectRevert(
-            abi.encodeWithSelector(DaoUnauthorized.selector, dao, plugin, address(this), keccak256("STORE_PERMISSION"))
+    function test_FirstProposalBeingBridged() public {
+        vm.startPrank(bob);
+        vm.warp(block.timestamp + 100);
+        vm.roll(block.number + 2);
+        bytes memory _metadata = abi.encodeWithSelector(
+            L1TokenVoting.updateBridgeSettings.selector,
+            uint16(1), // Or other chain really
+            address(layerZeroBridge),
+            address(l2dao),
+            address(l2plugin)
         );
+        IDAO.Action[] memory _actions = new IDAO.Action[](0);
+        uint256 _allowFailureMap = 0;
+        uint64 _startDate = uint64(block.timestamp);
+        uint64 _endDate = uint64(block.timestamp + 5000);
 
-        // plugin.storeNumber(69);
+        L1MajorityVotingBase.VoteOption _voteOption = IMajorityVoting.VoteOption.Yes;
+        bool _tryEarlyExecution = true;
+        uint256 proposalId = plugin.createProposal(_metadata, _actions, _allowFailureMap, _startDate, _endDate, _voteOption, _tryEarlyExecution);
+
+        assertEq(proposalId, uint256(1), "ProposalId is not correct");
+        vm.stopPrank();
+        vm.startPrank(dad);
+        l2plugin.vote(0, IMajorityVoting.VoteOption.Yes, _tryEarlyExecution);
+        vm.stopPrank();
+
+        (   
+            bool open, 
+            uint256 parentProposalId, 
+            bool executed, 
+            L2MajorityVotingBase.ProposalParameters memory parameters, 
+            L2MajorityVotingBase.Tally memory tally
+        ) = l2plugin.getProposal(0);
+
+        assertEq(open, false);
+        assertEq(parentProposalId, uint256(1));
+        assertEq(tally.yes, 10 ether);
     }
 }

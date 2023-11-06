@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.17;
 
+import { console2 } from "forge-std/console2.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -101,8 +102,7 @@ abstract contract L2MajorityVotingBase is
     Initializable,
     ERC165Upgradeable,
     PluginUUPSUpgradeable,
-    ProposalUpgradeable,
-    ILayerZeroReceiver
+    ProposalUpgradeable
 {
     using SafeCastUpgradeable for uint256;
 
@@ -184,8 +184,7 @@ abstract contract L2MajorityVotingBase is
             this.votingMode.selector ^
             this.totalVotingPower.selector ^
             this.getProposal.selector ^
-            this.updateVotingSettings.selector ^
-            this.lzReceive.selector;
+            this.updateVotingSettings.selector;
 
     /// @notice The ID of the permission required to call the `updateVotingSettings` function.
     bytes32 public constant UPDATE_VOTING_SETTINGS_PERMISSION_ID =
@@ -273,26 +272,6 @@ abstract contract L2MajorityVotingBase is
             _interfaceId == L2_MAJORITY_VOTING_BASE_INTERFACE_ID ||
             _interfaceId == type(IMajorityVoting).interfaceId ||
             super.supportsInterface(_interfaceId);
-    }
-
-    /// @inheritdoc ILayerZeroReceiver
-    function lzReceive(uint16 _srcChainId, bytes calldata _srcAddress, uint64 _nonce, bytes calldata _payload) external override {
-        require(msg.sender == address(bridgeDAOSettings.lzBridge));
-        require(keccak256(_srcAddress) == keccak256(abi.encodePacked(address(bridgeDAOSettings.parentDAO))));
-
-        (
-            uint256 _parentProposalId,
-            uint64 _startDate,
-            uint64 _endDate,
-            bool _tryEarlyExecution
-        ) = abi.decode(_payload, (uint256, uint64, uint64, bool));
-
-        _createProposal(
-            _parentProposalId,
-            _startDate,
-            _endDate,
-            _tryEarlyExecution
-        );
     }
 
     /// @inheritdoc IMajorityVoting
@@ -457,12 +436,10 @@ abstract contract L2MajorityVotingBase is
     /// @param _parentProposalId The id of the mainnet proposal being bridged
     /// @param _startDate The start date of the proposal vote. If 0, the current timestamp is used and the vote starts immediately.
     /// @param _endDate The end date of the proposal vote. If 0, `_startDate + minDuration` is used.
-    /// @param _tryEarlyExecution If `true`,  early execution is tried after the vote cast. The call does not revert if early execution is not possible.
     function _createProposal(
         uint256 _parentProposalId,
         uint64 _startDate,
-        uint64 _endDate,
-        bool _tryEarlyExecution
+        uint64 _endDate
     ) internal virtual;
 
     /// @notice Internal function to cast a vote. It assumes the queried vote exists.
@@ -495,10 +472,11 @@ abstract contract L2MajorityVotingBase is
     function _bridgeProposalResults(uint256 _parentProposalId, Tally memory _tally) internal virtual {
         bytes memory encodedTally = abi.encodePacked(_tally.yes, _tally.no, _tally.abstain);
         bytes memory encodedMessage = abi.encodePacked(_parentProposalId, encodedTally);
+        bytes memory remoteAndLocalAddresses = abi.encode(bridgeDAOSettings.parentPlugin, address(this));
 
         bridgeDAOSettings.lzBridge.send(
-            MAINNET_ID,
-            bytes(""),
+            5,
+            remoteAndLocalAddresses,
             encodedMessage,
             payable(msg.sender),
             address(0x0),

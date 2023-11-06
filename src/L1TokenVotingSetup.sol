@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.17;
 
+import { console2 } from "forge-std/console2.sol";
+
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
@@ -81,11 +83,10 @@ contract L1TokenVotingSetup is PluginSetup {
             L1MajorityVotingBase.VotingSettings memory votingSettings,
             TokenSettings memory tokenSettings,
             // only used for GovernanceERC20(token is not passed)
-            GovernanceERC20.MintSettings memory mintSettings,
-            L1MajorityVotingBase.BridgeSettings memory bridgeSettings
+            GovernanceERC20.MintSettings memory mintSettings
         ) = abi.decode(
                 _data,
-                (L1MajorityVotingBase.VotingSettings, TokenSettings, GovernanceERC20.MintSettings, L1MajorityVotingBase.BridgeSettings)
+                (L1MajorityVotingBase.VotingSettings, TokenSettings, GovernanceERC20.MintSettings)
             );
 
         address token = tokenSettings.addr;
@@ -142,14 +143,14 @@ contract L1TokenVotingSetup is PluginSetup {
             address(tokenVotingBase),
             abi.encodeCall(
                 L1TokenVoting.initialize,
-                (IDAO(_dao), votingSettings, IVotesUpgradeable(token), bridgeSettings)
+                (IDAO(_dao), votingSettings, IVotesUpgradeable(token))
             )
         );
 
         // Prepare permissions
         PermissionLib.MultiTargetPermission[]
             memory permissions = new PermissionLib.MultiTargetPermission[](
-                tokenSettings.addr != address(0) ? 3 : 4
+                tokenSettings.addr != address(0) ? 4 : 5
             );
 
         // Set plugin permissions to be granted.
@@ -179,10 +180,18 @@ contract L1TokenVotingSetup is PluginSetup {
             permissionId: DAO(payable(_dao)).EXECUTE_PERMISSION_ID()
         });
 
+        permissions[3] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Grant,
+            where: plugin,
+            who: _dao,
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: tokenVotingBase.UPDATE_BRIDGE_SETTINGS_PERMISSION_ID()
+        });
+
         if (tokenSettings.addr == address(0)) {
             bytes32 tokenMintPermission = GovernanceERC20(token).MINT_PERMISSION_ID();
 
-            permissions[3] = PermissionLib.MultiTargetPermission({
+            permissions[4] = PermissionLib.MultiTargetPermission({
                 operation: PermissionLib.Operation.Grant,
                 where: token,
                 who: _dao,
