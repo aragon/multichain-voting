@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.17;
 
-import { console2 } from "forge-std/console2.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -11,10 +10,10 @@ import {ProposalUpgradeable} from "@aragon/osx/core/plugin/proposal/ProposalUpgr
 import {PluginUUPSUpgradeable} from "@aragon/osx/core/plugin/PluginUUPSUpgradeable.sol";
 import {IDAO} from "@aragon/osx/core/dao/IDAO.sol";
 import {RATIO_BASE, RatioOutOfBounds} from "@aragon/osx/plugins/utils/Ratio.sol";
-import {IMajorityVoting} from "@aragon/osx/plugins/governance/majority-voting/IMajorityVoting.sol";
+import {IL2MajorityVoting} from "./interfaces/IL2MajorityVoting.sol";
 
-import { ILayerZeroReceiver } from "./interfaces/ILayerZeroReceiver.sol";
-import { ILayerZeroSender } from "./interfaces/ILayerZeroSender.sol";
+import {ILayerZeroReceiver} from "./interfaces/ILayerZeroReceiver.sol";
+import {ILayerZeroSender} from "./interfaces/ILayerZeroSender.sol";
 
 /// @title L2MajorityVotingBase
 /// @author Aragon Association - 2022-2023
@@ -95,10 +94,10 @@ import { ILayerZeroSender } from "./interfaces/ILayerZeroSender.sol";
 /// $$
 ///
 /// Accordingly, early execution is possible when the vote is open, the modified support criterion, and the particicpation criterion are met.
-/// @dev This contract implements the `IMajorityVoting` interface.
+/// @dev This contract implements the `IL2MajorityVoting` interface.
 /// @custom:security-contact sirt@aragon.org
 abstract contract L2MajorityVotingBase is
-    IMajorityVoting,
+    IL2MajorityVoting,
     Initializable,
     ERC165Upgradeable,
     PluginUUPSUpgradeable,
@@ -142,7 +141,7 @@ abstract contract L2MajorityVotingBase is
         uint256 parentProposalId;
         ProposalParameters parameters;
         Tally tally;
-        mapping(address => IMajorityVoting.VoteOption) voters;
+        mapping(address => IL2MajorityVoting.VoteOption) voters;
     }
 
     /// @notice A container for the proposal parameters at the time of proposal creation.
@@ -270,11 +269,11 @@ abstract contract L2MajorityVotingBase is
     {
         return
             _interfaceId == L2_MAJORITY_VOTING_BASE_INTERFACE_ID ||
-            _interfaceId == type(IMajorityVoting).interfaceId ||
+            _interfaceId == type(IL2MajorityVoting).interfaceId ||
             super.supportsInterface(_interfaceId);
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @inheritdoc IL2MajorityVoting
     function vote(
         uint256 _proposalId,
         VoteOption _voteOption,
@@ -292,15 +291,14 @@ abstract contract L2MajorityVotingBase is
         _vote(_proposalId, _voteOption, account, _tryEarlyExecution);
     }
 
-    /// @inheritdoc IMajorityVoting
-    function execute(uint256 _proposalId) public virtual {
+    function execute(uint256 _proposalId) public payable virtual {
         if (!_canExecute(_proposalId)) {
             revert ProposalExecutionForbidden(_proposalId);
         }
         _execute(_proposalId);
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @inheritdoc IL2MajorityVoting
     function getVoteOption(
         uint256 _proposalId,
         address _voter
@@ -308,7 +306,7 @@ abstract contract L2MajorityVotingBase is
         return proposals[_proposalId].voters[_voter];
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @inheritdoc IL2MajorityVoting
     function canVote(
         uint256 _proposalId,
         address _voter,
@@ -317,12 +315,12 @@ abstract contract L2MajorityVotingBase is
         return _canVote(_proposalId, _voter, _voteOption);
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @inheritdoc IL2MajorityVoting
     function canExecute(uint256 _proposalId) public view virtual returns (bool) {
         return _canExecute(_proposalId);
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @inheritdoc IL2MajorityVoting
     function isSupportThresholdReached(uint256 _proposalId) public view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
@@ -333,7 +331,7 @@ abstract contract L2MajorityVotingBase is
             proposal_.parameters.supportThreshold * proposal_.tally.no;
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @inheritdoc IL2MajorityVoting
     function isSupportThresholdReachedEarly(
         uint256 _proposalId
     ) public view virtual returns (bool) {
@@ -350,7 +348,7 @@ abstract contract L2MajorityVotingBase is
             proposal_.parameters.supportThreshold * noVotesWorstCase;
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @inheritdoc IL2MajorityVoting
     function isMinParticipationReached(uint256 _proposalId) public view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
@@ -361,12 +359,12 @@ abstract contract L2MajorityVotingBase is
             proposal_.parameters.minVotingPower;
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @inheritdoc IL2MajorityVoting
     function supportThreshold() public view virtual returns (uint32) {
         return votingSettings.supportThreshold;
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @inheritdoc IL2MajorityVoting
     function minParticipation() public view virtual returns (uint32) {
         return votingSettings.minParticipation;
     }
@@ -460,21 +458,24 @@ abstract contract L2MajorityVotingBase is
         Proposal storage proposal_ = proposals[_proposalId];
         proposal_.executed = true;
 
-        _bridgeProposalResults(
-            proposal_.parentProposalId,
-            proposal_.tally
-        );
+        _bridgeProposalResults(proposal_.parentProposalId, proposal_.tally);
     }
 
     /// @notice Internal function to bridge the results of a proposal to the main chain
     /// @param _parentProposalId the id of the proposal in mainnet
     /// @param _tally the results of the proposal being bridged
-    function _bridgeProposalResults(uint256 _parentProposalId, Tally memory _tally) internal virtual {
+    function _bridgeProposalResults(
+        uint256 _parentProposalId,
+        Tally memory _tally
+    ) internal virtual {
         bytes memory encodedTally = abi.encodePacked(_tally.yes, _tally.no, _tally.abstain);
         bytes memory encodedMessage = abi.encodePacked(_parentProposalId, encodedTally);
-        bytes memory remoteAndLocalAddresses = abi.encode(bridgeDAOSettings.parentPlugin, address(this));
+        bytes memory remoteAndLocalAddresses = abi.encodePacked(
+            bridgeDAOSettings.parentPlugin,
+            address(this)
+        );
 
-        bridgeDAOSettings.lzBridge.send(
+        bridgeDAOSettings.lzBridge.send{value: msg.value}(
             5,
             remoteAndLocalAddresses,
             encodedMessage,

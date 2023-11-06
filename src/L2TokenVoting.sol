@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity >=0.8.17;
 
-import { IVotesUpgradeable } from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
-import { IMembership } from "@aragon/osx/core/plugin/membership/IMembership.sol";
-import {  SafeCastUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import { IMembership } from "@aragon/osx/core/plugin/membership/IMembership.sol";
-import { IDAO } from "@aragon/osx/core/dao/IDAO.sol";
-import { RATIO_BASE, _applyRatioCeiled } from "@aragon/osx/plugins/utils/Ratio.sol";
+import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
+import {IMembership} from "@aragon/osx/core/plugin/membership/IMembership.sol";
+import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {IMembership} from "@aragon/osx/core/plugin/membership/IMembership.sol";
+import {IDAO} from "@aragon/osx/core/dao/IDAO.sol";
+import {RATIO_BASE, _applyRatioCeiled} from "@aragon/osx/plugins/utils/Ratio.sol";
 import {IMajorityVoting} from "@aragon/osx/plugins/governance/majority-voting/IMajorityVoting.sol";
-import { L2MajorityVotingBase } from "./L2MajorityVotingBase.sol";
-import { NonblockingLzApp } from "./lzApp/NonblockingLzApp.sol";
+import {L2MajorityVotingBase} from "./L2MajorityVotingBase.sol";
+import {NonblockingLzApp} from "./lzApp/NonblockingLzApp.sol";
 
 /**
  * @title L2TokenVoting
@@ -19,7 +19,7 @@ import { NonblockingLzApp } from "./lzApp/NonblockingLzApp.sol";
  * to delegate spending authority
  */
 contract L2TokenVoting is IMembership, L2MajorityVotingBase, NonblockingLzApp {
- using SafeCastUpgradeable for uint256;
+    using SafeCastUpgradeable for uint256;
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.
     bytes4 internal constant TOKEN_VOTING_INTERFACE_ID =
@@ -28,7 +28,12 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase, NonblockingLzApp {
     /// @notice An [OpenZeppelin `Votes`](https://docs.openzeppelin.com/contracts/4.x/api/governance#Votes) compatible contract referencing the token being used for voting.
     IVotesUpgradeable private votingToken;
 
-    event ProposalCreated(uint256 parentProposalId, uint256 proposalId, uint64 startDate, uint64 endDate);
+    event ProposalCreated(
+        uint256 parentProposalId,
+        uint256 proposalId,
+        uint64 startDate,
+        uint64 endDate
+    );
 
     /// @notice Thrown if the voting power is zero
     error NoVotingPower();
@@ -48,14 +53,10 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase, NonblockingLzApp {
 
         votingToken = _token;
         _setEndpoint(address(_bridgeDAOSettings.lzBridge));
-        bytes memory remoteAndLocalAddresses = abi.encode(_bridgeDAOSettings.parentDAO, address(this));
-        _setTrustedRemoteAddress(1, remoteAndLocalAddresses);
-        remoteAndLocalAddresses = abi.encode(address(this), _bridgeDAOSettings.parentDAO);
-        // _setTrustedRemoteAddress(uint16(block.chainid), remoteAndLocalAddresses);
-        _setTrustedRemoteAddress(1, remoteAndLocalAddresses);
-        remoteAndLocalAddresses = abi.encode(_bridgeDAOSettings.parentPlugin, address(this));
-        _setTrustedRemoteAddress(1, remoteAndLocalAddresses);
-        remoteAndLocalAddresses = abi.encode(address(this), _bridgeDAOSettings.parentPlugin);
+        bytes memory remoteAndLocalAddresses = abi.encodePacked(
+            _bridgeDAOSettings.parentPlugin,
+            address(this)
+        );
         _setTrustedRemoteAddress(1, remoteAndLocalAddresses);
 
         emit MembershipContractAnnounced({definingContract: address(_token)});
@@ -230,9 +231,9 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase, NonblockingLzApp {
     }
 
     function _nonblockingLzReceive(
-        uint16 _srcChainId, 
-        bytes memory _srcAddress, 
-        uint64, 
+        uint16 _srcChainId,
+        bytes memory _srcAddress,
+        uint64,
         bytes memory _payload
     ) internal override {
         (
@@ -242,10 +243,6 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase, NonblockingLzApp {
             bool _tryEarlyExecution
         ) = abi.decode(_payload, (uint256, uint64, uint64, bool));
 
-        _createProposal(
-            _parentProposalId,
-            _startDate,
-            _endDate
-        );
+        _createProposal(_parentProposalId, _startDate, _endDate);
     }
 }

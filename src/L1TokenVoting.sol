@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.17;
 
-import { console2 } from "forge-std/console2.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
-import { IMembership } from "@aragon/osx/core/plugin/membership/IMembership.sol";
-import { IDAO } from "@aragon/osx/core/dao/IDAO.sol";
-import { RATIO_BASE, _applyRatioCeiled } from "@aragon/osx/plugins/utils/Ratio.sol";
+import {IMembership} from "@aragon/osx/core/plugin/membership/IMembership.sol";
+import {IDAO} from "@aragon/osx/core/dao/IDAO.sol";
+import {RATIO_BASE, _applyRatioCeiled} from "@aragon/osx/plugins/utils/Ratio.sol";
 import {IMajorityVoting} from "@aragon/osx/plugins/governance/majority-voting/IMajorityVoting.sol";
 
-import { L1MajorityVotingBase } from "./L1MajorityVotingBase.sol";
-import { ILayerZeroSender } from "./interfaces/ILayerZeroSender.sol";
-import { NonblockingLzApp } from "./lzApp/NonblockingLzApp.sol";
+import {L1MajorityVotingBase} from "./L1MajorityVotingBase.sol";
+import {ILayerZeroSender} from "./interfaces/ILayerZeroSender.sol";
+import {NonblockingLzApp} from "./lzApp/NonblockingLzApp.sol";
 
 /// @title L1TokenVoting
 /// @author Aragon Association - 2021-2023
@@ -84,7 +83,7 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
         uint64 _endDate,
         VoteOption _voteOption,
         bool _tryEarlyExecution
-    ) external override returns (uint256 proposalId) {
+    ) external payable override returns (uint256 proposalId) {
         // Check that either `_msgSender` owns enough tokens or has enough voting power from being a delegatee.
         {
             uint256 minProposerVotingPower_ = minProposerVotingPower();
@@ -142,11 +141,20 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
         }
 
         // Bridge the proposal over to the L2
-        bytes memory encodedMessage = abi.encode(proposalId, _startDate, _endDate, _tryEarlyExecution);
+        bytes memory encodedMessage = abi.encode(
+            proposalId,
+            _startDate,
+            _endDate,
+            _tryEarlyExecution
+        );
 
-        if (bridgeSettings.bridge != address(0) || bridgeSettings.chainId != uint16(0) || address(bridgeSettings.childDAO) != address(0)) {
+        if (
+            bridgeSettings.bridge != address(0) ||
+            bridgeSettings.chainId != uint16(0) ||
+            address(bridgeSettings.childDAO) != address(0)
+        ) {
             _lzSend({
-                _dstChainId: bridgeSettings.chainId,
+                _dstChainId: 5,
                 _payload: encodedMessage,
                 _refundAddress: payable(msg.sender),
                 _zroPaymentAddress: address(0),
@@ -182,9 +190,10 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
     ) external virtual auth(UPDATE_BRIDGE_SETTINGS_PERMISSION_ID) {
         bridgeSettings = _bridgeSettings;
         _setEndpoint(_bridgeSettings.bridge);
-        bytes memory remoteAndLocalAddresses = abi.encode(_bridgeSettings.childPlugin, address(this));
-        _setTrustedRemoteAddress(_bridgeSettings.chainId, remoteAndLocalAddresses);
-        remoteAndLocalAddresses = abi.encode(address(this), _bridgeSettings.childPlugin);
+        bytes memory remoteAndLocalAddresses = abi.encodePacked(
+            _bridgeSettings.childPlugin,
+            address(this)
+        );
         _setTrustedRemoteAddress(5, remoteAndLocalAddresses);
     }
 
@@ -271,7 +280,7 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
     function _nonblockingLzReceive(
         uint16 _srcChainId,
         bytes memory _srcAddress,
-        uint64, /*_nonce*/
+        uint64 /*_nonce*/,
         bytes memory _payload
     ) internal override {
         // It's already checkec if the sender is a trustedRemote
@@ -281,7 +290,7 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
         proposal_.tally.yes += tally.yes;
         proposal_.tally.no += tally.no;
         proposal_.tally.abstain += tally.abstain;
-        
+
         emit VoteCast({
             proposalId: proposalId,
             voter: address(0),

@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.8;
 
-import { console2 } from "forge-std/console2.sol";
 import {ERC165Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {SafeCastUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
@@ -13,8 +12,6 @@ import {PluginUUPSUpgradeable} from "@aragon/osx/core/plugin/PluginUUPSUpgradeab
 import {IDAO} from "@aragon/osx/core/dao/IDAO.sol";
 import {RATIO_BASE, RatioOutOfBounds} from "@aragon/osx/plugins/utils/Ratio.sol";
 import {IMajorityVoting} from "@aragon/osx/plugins/governance/majority-voting/IMajorityVoting.sol";
-
-
 
 /// @title MajorityVotingBase
 /// @author Aragon Association - 2022-2023
@@ -443,8 +440,6 @@ abstract contract L1MajorityVotingBase is
         _updateVotingSettings(_votingSettings);
     }
 
-    
-
     /// @notice Creates a new majority voting proposal.
     /// @param _metadata The metadata of the proposal.
     /// @param _actions The actions that will be executed after the proposal passes.
@@ -462,7 +457,7 @@ abstract contract L1MajorityVotingBase is
         uint64 _endDate,
         VoteOption _voteOption,
         bool _tryEarlyExecution
-    ) external virtual returns (uint256 proposalId);
+    ) external payable virtual returns (uint256 proposalId);
 
     /// @notice Internal function to cast a vote. It assumes the queried vote exists.
     /// @param _proposalId The ID of the proposal.
@@ -616,3 +611,4 @@ abstract contract L1MajorityVotingBase is
     /// @notice This empty reserved space is put in place to allow future versions to add new variables without shifting down storage in the inheritance chain (see [OpenZeppelin's guide about storage gaps](https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
     uint256[47] private __gap;
 }
+

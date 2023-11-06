@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.17;
 
-import { console2 } from "forge-std/console2.sol";
-
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ERC165Checker} from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
@@ -290,3 +288,4 @@ contract L1TokenVotingSetup is PluginSetup {
         return success && data.length == 0x20;
     }
 }
+

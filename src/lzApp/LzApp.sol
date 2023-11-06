@@ -2,12 +2,11 @@
 
 pragma solidity >=0.8.17;
 
-import { console2 } from "forge-std/console2.sol";
-import { ILayerZeroReceiver } from "../interfaces/ILayerZeroReceiver.sol";
-import { ILayerZeroEndpoint } from "../interfaces/ILayerZeroEndpoint.sol";
-import { ILayerZeroUserApplicationConfig } from "../interfaces/ILayerZeroUserApplicationConfig.sol";
-import { BytesLib } from "../utils/BytesLib.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ILayerZeroReceiver} from "../interfaces/ILayerZeroReceiver.sol";
+import {ILayerZeroEndpoint} from "../interfaces/ILayerZeroEndpoint.sol";
+import {ILayerZeroUserApplicationConfig} from "../interfaces/ILayerZeroUserApplicationConfig.sol";
+import {BytesLib} from "../utils/BytesLib.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /*
  * a generic LzReceiver implementation
@@ -43,12 +42,11 @@ abstract contract LzApp is OwnableUpgradeable, ILayerZeroReceiver, ILayerZeroUse
         require(_msgSender() == address(lzEndpoint), "LzApp: invalid endpoint caller");
 
         bytes memory trustedRemote = trustedRemoteLookup[_srcChainId];
-        console2.log("lzReceive");
-        console2.logBytes(_srcAddress);
-        console2.logBytes(trustedRemote);
         // if will still block the message pathway from (srcChainId, srcAddress). should not receive message from untrusted remote.
         require(
-            _srcAddress.length == trustedRemote.length && trustedRemote.length > 0 && keccak256(_srcAddress) == keccak256(trustedRemote),
+            _srcAddress.length == trustedRemote.length &&
+                trustedRemote.length > 0 &&
+                keccak256(_srcAddress) == keccak256(trustedRemote),
             "LzApp: invalid source sending contract"
         );
 
@@ -74,9 +72,14 @@ abstract contract LzApp is OwnableUpgradeable, ILayerZeroReceiver, ILayerZeroUse
         bytes memory trustedRemote = trustedRemoteLookup[_dstChainId];
         require(trustedRemote.length != 0, "LzApp: destination chain is not a trusted source");
         _checkPayloadSize(_dstChainId, _payload.length);
-        console2.log("LzApp");
-        console2.logBytes(trustedRemote);
-        lzEndpoint.send{value: _nativeFee}(_dstChainId, trustedRemote, _payload, _refundAddress, _zroPaymentAddress, _adapterParams);
+        lzEndpoint.send{value: _nativeFee}(
+            _dstChainId,
+            trustedRemote,
+            _payload,
+            _refundAddress,
+            _zroPaymentAddress,
+            _adapterParams
+        );
     }
 
     function _checkGasLimit(
@@ -91,7 +94,9 @@ abstract contract LzApp is OwnableUpgradeable, ILayerZeroReceiver, ILayerZeroUse
         require(providedGasLimit >= minGasLimit + _extraGas, "LzApp: gas limit is too low");
     }
 
-    function _getGasLimit(bytes memory _adapterParams) internal pure virtual returns (uint gasLimit) {
+    function _getGasLimit(
+        bytes memory _adapterParams
+    ) internal pure virtual returns (uint gasLimit) {
         require(_adapterParams.length >= 34, "LzApp: invalid adapterParams");
         assembly {
             gasLimit := mload(add(_adapterParams, 34))
@@ -135,18 +140,20 @@ abstract contract LzApp is OwnableUpgradeable, ILayerZeroReceiver, ILayerZeroUse
         lzEndpoint.setReceiveVersion(_version);
     }
 
-    function forceResumeReceive(uint16 _srcChainId, bytes calldata _srcAddress) external override onlyOwner {
+    function forceResumeReceive(
+        uint16 _srcChainId,
+        bytes calldata _srcAddress
+    ) external override onlyOwner {
         lzEndpoint.forceResumeReceive(_srcChainId, _srcAddress);
     }
 
-    // _path = abi.encodePacked(remoteAddress, localAddress)
     // this function set the trusted path for the cross-chain communication
     function setTrustedRemote(uint16 _remoteChainId, bytes calldata _path) external onlyOwner {
         trustedRemoteLookup[_remoteChainId] = _path;
         emit SetTrustedRemote(_remoteChainId, _path);
     }
 
-    function _setTrustedRemoteAddress(uint16 _remoteChainId, bytes memory _remoteAddress)  internal {
+    function _setTrustedRemoteAddress(uint16 _remoteChainId, bytes memory _remoteAddress) internal {
         trustedRemoteLookup[_remoteChainId] = _remoteAddress;
         emit SetTrustedRemoteAddress(_remoteChainId, _remoteAddress);
     }
@@ -162,11 +169,7 @@ abstract contract LzApp is OwnableUpgradeable, ILayerZeroReceiver, ILayerZeroUse
         emit SetPrecrime(_precrime);
     }
 
-    function setMinDstGas(
-        uint16 _dstChainId,
-        uint16 _packetType,
-        uint _minGas
-    ) external onlyOwner {
+    function setMinDstGas(uint16 _dstChainId, uint16 _packetType, uint _minGas) external onlyOwner {
         minDstGasLookup[_dstChainId][_packetType] = _minGas;
         emit SetMinDstGas(_dstChainId, _packetType, _minGas);
     }
@@ -177,7 +180,10 @@ abstract contract LzApp is OwnableUpgradeable, ILayerZeroReceiver, ILayerZeroUse
     }
 
     //--------------------------- VIEW FUNCTION ----------------------------------------
-    function isTrustedRemote(uint16 _srcChainId, bytes calldata _srcAddress) external view returns (bool) {
+    function isTrustedRemote(
+        uint16 _srcChainId,
+        bytes calldata _srcAddress
+    ) external view returns (bool) {
         bytes memory trustedSource = trustedRemoteLookup[_srcChainId];
         return keccak256(trustedSource) == keccak256(_srcAddress);
     }
