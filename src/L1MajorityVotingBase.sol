@@ -13,7 +13,7 @@ import {IDAO} from "@aragon/osx/core/dao/IDAO.sol";
 import {RATIO_BASE, RatioOutOfBounds} from "@aragon/osx/plugins/utils/Ratio.sol";
 import {IMajorityVoting} from "@aragon/osx/plugins/governance/majority-voting/IMajorityVoting.sol";
 
-/// @title MajorityVotingBase
+/// @title L1MajorityVotingBase
 /// @author Aragon Association - 2022-2023
 /// @notice The abstract implementation of majority voting plugins.
 ///
@@ -611,4 +611,3 @@ abstract contract L1MajorityVotingBase is
     /// @notice This empty reserved space is put in place to allow future versions to add new variables without shifting down storage in the inheritance chain (see [OpenZeppelin's guide about storage gaps](https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps)).
     uint256[47] private __gap;
 }
-

@@ -17,7 +17,7 @@ import {NonblockingLzApp} from "./lzApp/NonblockingLzApp.sol";
 /// @title L1TokenVoting
 /// @author Aragon Association - 2021-2023
 /// @notice The majority voting implementation using an [OpenZeppelin `Votes`](https://docs.openzeppelin.com/contracts/4.x/api/governance#Votes) compatible governance token.
-/// @dev This contract inherits from `MajorityVotingBase` and implements the `IMajorityVoting` interface.
+/// @dev This contract inherits from `L1MajorityVotingBase` and implements the `IMajorityVoting` interface.
 /// @custom:security-contact sirt@aragon.org
 contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
     using SafeCastUpgradeable for uint256;
@@ -154,7 +154,7 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
             address(bridgeSettings.childDAO) != address(0)
         ) {
             _lzSend({
-                _dstChainId: 5,
+                _dstChainId: bridgeSettings.chainId,
                 _payload: encodedMessage,
                 _refundAddress: payable(msg.sender),
                 _zroPaymentAddress: address(0),
@@ -194,7 +194,7 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
             _bridgeSettings.childPlugin,
             address(this)
         );
-        _setTrustedRemoteAddress(5, remoteAndLocalAddresses);
+        _setTrustedRemoteAddress(_bridgeSettings.chainId, remoteAndLocalAddresses);
     }
 
     /// @inheritdoc L1MajorityVotingBase

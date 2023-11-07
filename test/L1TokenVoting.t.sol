@@ -161,7 +161,6 @@ abstract contract L1TokenVotingTest is AragonTest {
 
         l2dao = _dao;
         l2plugin = L2TokenVoting(_l2plugin);
-        console2.log("here");
         l1Bridge.setDestLzEndpoint(address(l2plugin), address(l2Bridge));
     }
 
@@ -172,7 +171,7 @@ abstract contract L1TokenVotingTest is AragonTest {
         vm.roll(block.number + 2);
         bytes memory _metadata = abi.encodeWithSelector(
             L1TokenVoting.updateBridgeSettings.selector,
-            uint16(1), // Or other chain really
+            uint16(5), // Or other chain really
             address(l1Bridge),
             address(l2dao),
             address(l2plugin)
