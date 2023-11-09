@@ -13,6 +13,7 @@ import {DaoUnauthorized} from "@aragon/osx/core/utils/auth.sol";
 import {IMajorityVoting} from "@aragon/osx/plugins/governance/majority-voting/IMajorityVoting.sol";
 
 import {AragonTest} from "./base/AragonTest.sol";
+import {IPluginSetup, PluginSetup} from "@aragon/osx/framework/plugin/setup/PluginSetup.sol";
 
 import {ILayerZeroSender} from "../src/interfaces/ILayerZeroSender.sol";
 
@@ -24,6 +25,7 @@ import {L2TokenVotingSetup} from "../src/L2TokenVotingSetup.sol";
 import {L2MajorityVotingBase} from "../src/L2MajorityVotingBase.sol";
 import {L2TokenVoting} from "../src/L2TokenVoting.sol";
 import {IL2MajorityVoting} from "../src/interfaces/IL2MajorityVoting.sol";
+import {NonblockingLzDAOProxy} from "../src/NonblockingLzDAOProxy.sol";
 
 import {GovernanceERC20} from "@aragon/osx/token/ERC20/governance/GovernanceERC20.sol";
 import {GovernanceWrappedERC20} from "@aragon/osx/token/ERC20/governance/GovernanceWrappedERC20.sol";
@@ -39,6 +41,8 @@ abstract contract L1TokenVotingTest is AragonTest {
     GovernanceWrappedERC20 governanceWrappedERC20Base;
     LZEndpointMock l1Bridge;
     LZEndpointMock l2Bridge;
+    NonblockingLzDAOProxy l2daoProxy;
+
     DAO internal l2dao;
     L2TokenVoting internal l2plugin;
     L2TokenVotingSetup internal l2setup;
@@ -92,7 +96,11 @@ abstract contract L1TokenVotingTest is AragonTest {
         setup = new L1TokenVotingSetup(l1governanceERC20Base, governanceWrappedERC20Base);
         bytes memory setupData = abi.encode(votingSettings, tokenSettings, mintSettings);
 
-        (DAO _dao, address _plugin) = createMockDaoWithPlugin(setup, setupData);
+        (
+            DAO _dao,
+            address _plugin,
+            PluginSetup.PreparedSetupData memory _preparedSetupData
+        ) = createMockDaoWithPlugin(setup, setupData);
 
         dao = _dao;
         plugin = L1TokenVoting(_plugin);
@@ -157,10 +165,15 @@ abstract contract L1TokenVotingTest is AragonTest {
             bridgeDAOSettings
         );
 
-        (DAO _dao, address _l2plugin) = createMockDaoWithPlugin(l2setup, setupData);
+        (
+            DAO _dao,
+            address _l2plugin,
+            PluginSetup.PreparedSetupData memory preparedSetupData
+        ) = createMockDaoWithPlugin(l2setup, setupData);
 
         l2dao = _dao;
         l2plugin = L2TokenVoting(_l2plugin);
+        l2daoProxy = NonblockingLzDAOProxy(preparedSetupData.helpers[1]);
         l1Bridge.setDestLzEndpoint(address(l2plugin), address(l2Bridge));
     }
 
