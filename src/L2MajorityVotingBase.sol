@@ -13,7 +13,7 @@ import {RATIO_BASE, RatioOutOfBounds} from "@aragon/osx/plugins/utils/Ratio.sol"
 import {IL2MajorityVoting} from "./interfaces/IL2MajorityVoting.sol";
 
 import {ILayerZeroReceiver} from "./interfaces/ILayerZeroReceiver.sol";
-import {ILayerZeroSender} from "./interfaces/ILayerZeroSender.sol";
+import {ILayerZeroEndpoint} from "./interfaces/ILayerZeroEndpoint.sol";
 
 /// @title L2MajorityVotingBase
 /// @author Aragon Association - 2022-2023
@@ -171,9 +171,9 @@ abstract contract L2MajorityVotingBase is
     }
 
     struct BridgeDAOSettings {
-        IDAO parentDAO;
+        address parentDAO;
         address parentPlugin;
-        ILayerZeroSender lzBridge;
+        ILayerZeroEndpoint lzBridge;
     }
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.

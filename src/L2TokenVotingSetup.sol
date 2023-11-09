@@ -18,6 +18,7 @@ import {IGovernanceWrappedERC20} from "@aragon/osx/token/ERC20/governance/IGover
 
 import {L2MajorityVotingBase} from "./L2MajorityVotingBase.sol";
 import {L2TokenVoting} from "./L2TokenVoting.sol";
+import {NonblockingLzDAOProxy} from "./NonblockingLzDAOProxy.sol";
 
 /// @title L2TokenVotingSetup
 /// @author Aragon Association - 2022-2023
@@ -86,7 +87,12 @@ contract L2TokenVotingSetup is PluginSetup {
             L2MajorityVotingBase.BridgeDAOSettings memory bridgeDAOSettings
         ) = abi.decode(
                 _data,
-                (L2MajorityVotingBase.VotingSettings, TokenSettings, GovernanceERC20.MintSettings, L2MajorityVotingBase.BridgeDAOSettings)
+                (
+                    L2MajorityVotingBase.VotingSettings,
+                    TokenSettings,
+                    GovernanceERC20.MintSettings,
+                    L2MajorityVotingBase.BridgeDAOSettings
+                )
             );
 
         address token = tokenSettings.addr;
@@ -147,6 +153,13 @@ contract L2TokenVotingSetup is PluginSetup {
             )
         );
 
+        // Deploy the LZ Proxy for relaying DAO executions
+        NonblockingLzDAOProxy lzProxy = new NonblockingLzDAOProxy(
+            bridgeDAOSettings.lzBridge,
+            IDAO(_dao),
+            bridgeDAOSettings.parentDAO
+        );
+
         // Prepare permissions
         PermissionLib.MultiTargetPermission[]
             memory permissions = new PermissionLib.MultiTargetPermission[](
@@ -171,14 +184,25 @@ contract L2TokenVotingSetup is PluginSetup {
             permissionId: tokenVotingBase.UPGRADE_PLUGIN_PERMISSION_ID()
         });
 
-        // Grant `EXECUTE_PERMISSION` of the DAO to the plugin.
         permissions[2] = PermissionLib.MultiTargetPermission({
+            operation: PermissionLib.Operation.Grant,
+            where: _dao,
+            who: address(lzProxy),
+            condition: PermissionLib.NO_CONDITION,
+            permissionId: DAO(payable(_dao)).EXECUTE_PERMISSION_ID()
+        });
+
+        /*
+        // Depending on users needs, this can be enabled or not
+        // Grant `EXECUTE_PERMISSION` of the DAO to the plugin.
+        permissions[3] = PermissionLib.MultiTargetPermission({
             operation: PermissionLib.Operation.Grant,
             where: _dao,
             who: plugin,
             condition: PermissionLib.NO_CONDITION,
             permissionId: DAO(payable(_dao)).EXECUTE_PERMISSION_ID()
         });
+        */
 
         if (tokenSettings.addr == address(0)) {
             bytes32 tokenMintPermission = GovernanceERC20(token).MINT_PERMISSION_ID();

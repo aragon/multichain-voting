@@ -147,7 +147,7 @@ abstract contract L1TokenVotingTest is AragonTest {
         );
 
         L2MajorityVotingBase.BridgeDAOSettings memory bridgeDAOSettings = L2MajorityVotingBase
-            .BridgeDAOSettings(dao, address(plugin), ILayerZeroSender(address(l2Bridge)));
+            .BridgeDAOSettings(address(dao), address(plugin), l2Bridge);
 
         l2setup = new L2TokenVotingSetup(l2governanceERC20Base, governanceWrappedERC20Base);
         bytes memory setupData = abi.encode(
