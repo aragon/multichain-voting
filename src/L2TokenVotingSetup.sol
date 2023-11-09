@@ -98,7 +98,7 @@ contract L2TokenVotingSetup is PluginSetup {
         address token = tokenSettings.addr;
 
         // Prepare helpers.
-        address[] memory helpers = new address[](1);
+        address[] memory helpers = new address[](2);
 
         if (token != address(0)) {
             if (!token.isContract()) {
@@ -159,6 +159,7 @@ contract L2TokenVotingSetup is PluginSetup {
             IDAO(_dao),
             bridgeDAOSettings.parentDAO
         );
+        helpers[1] = address(lzProxy);
 
         // Prepare permissions
         PermissionLib.MultiTargetPermission[]
