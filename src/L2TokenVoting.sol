@@ -152,12 +152,7 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase, NonblockingLzApp {
     }
 
     /// @inheritdoc L2MajorityVotingBase
-    function _vote(
-        uint256 _proposalId,
-        VoteOption _voteOption,
-        address _voter,
-        bool _tryEarlyExecution
-    ) internal override {
+    function _vote(uint256 _proposalId, VoteOption _voteOption, address _voter) internal override {
         Proposal storage proposal_ = proposals[_proposalId];
 
         // This could re-enter, though we can assume the governance token is not malicious
@@ -190,10 +185,6 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase, NonblockingLzApp {
             voteOption: _voteOption,
             votingPower: votingPower
         });
-
-        if (_tryEarlyExecution && _canExecute(_proposalId)) {
-            _execute(_proposalId);
-        }
     }
 
     /// @inheritdoc L2MajorityVotingBase

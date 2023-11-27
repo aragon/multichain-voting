@@ -285,7 +285,7 @@ contract L1TokenVotingInitializeTest is L1TokenVotingTest {
         assertEq(proposalId, uint256(1), "ProposalId is not correct");
         vm.stopPrank();
         vm.startPrank(dad);
-        l2plugin.vote(0, IL2MajorityVoting.VoteOption.Yes, false);
+        l2plugin.vote(0, IL2MajorityVoting.VoteOption.Yes);
         l2plugin.execute{value: 0.5 ether}(0);
         vm.stopPrank();
 

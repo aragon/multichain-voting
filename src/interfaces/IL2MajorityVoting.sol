@@ -81,8 +81,7 @@ interface IL2MajorityVoting {
     /// @dev `_voteOption`, 1 -> abstain, 2 -> yes, 3 -> no
     /// @param _proposalId The ID of the proposal.
     /// @param _voteOption The chosen vote option.
-    /// @param _tryEarlyExecution If `true`,  early execution is tried after the vote cast. The call does not revert if early execution is not possible.
-    function vote(uint256 _proposalId, VoteOption _voteOption, bool _tryEarlyExecution) external;
+    function vote(uint256 _proposalId, VoteOption _voteOption) external;
 
     /// @notice Executes a proposal.
     /// @param _proposalId The ID of the proposal to be executed.

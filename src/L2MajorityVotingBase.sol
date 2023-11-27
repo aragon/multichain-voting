@@ -274,11 +274,7 @@ abstract contract L2MajorityVotingBase is
     }
 
     /// @inheritdoc IL2MajorityVoting
-    function vote(
-        uint256 _proposalId,
-        VoteOption _voteOption,
-        bool _tryEarlyExecution
-    ) public virtual {
+    function vote(uint256 _proposalId, VoteOption _voteOption) public virtual {
         address account = _msgSender();
 
         if (!_canVote(_proposalId, account, _voteOption)) {
@@ -288,7 +284,7 @@ abstract contract L2MajorityVotingBase is
                 voteOption: _voteOption
             });
         }
-        _vote(_proposalId, _voteOption, account, _tryEarlyExecution);
+        _vote(_proposalId, _voteOption, account);
     }
 
     function execute(uint256 _proposalId) public payable virtual {
@@ -443,13 +439,7 @@ abstract contract L2MajorityVotingBase is
     /// @notice Internal function to cast a vote. It assumes the queried vote exists.
     /// @param _proposalId The ID of the proposal.
     /// @param _voteOption The chosen vote option to be casted on the proposal vote.
-    /// @param _tryEarlyExecution If `true`,  early execution is tried after the vote cast. The call does not revert if early execution is not possible.
-    function _vote(
-        uint256 _proposalId,
-        VoteOption _voteOption,
-        address _voter,
-        bool _tryEarlyExecution
-    ) internal virtual;
+    function _vote(uint256 _proposalId, VoteOption _voteOption, address _voter) internal virtual;
 
     /// @notice Internal function to execute a vote. It assumes the queried proposal exists.
     /// @param _proposalId The ID of the proposal.
