@@ -51,15 +51,9 @@ contract DaoDeploymentScript is Script {
             .BridgeDAOSettings(
                 vm.envAddress("GOERLI_DAO"),
                 vm.envAddress("GOERLI_L1_TOKEN_VOTING_PLUGIN"),
-                ILayerZeroEndpoint(vm.envAddress("MUMBAI_LAYER_ZERO_ENDPOINT"))
+                ILayerZeroEndpoint(vm.envAddress("MUMBAI_LAYER_ZERO_ENDPOINT")),
+                uint16(vm.envUint("GOERLI_LZ_CHAIN_ID"))
             );
-
-        bytes memory pluginSettingsData = abi.encode(
-            votingSettings,
-            tokenSettings,
-            mintSettings,
-            bridgeDAOSettings
-        );
 
         DAOFactory daoFactory = DAOFactory(vm.envAddress("MUMBAI_DAO_FACTORY"));
         DAOFactory.DAOSettings memory daoSettings = DAOFactory.DAOSettings(
@@ -72,7 +66,7 @@ contract DaoDeploymentScript is Script {
         DAOFactory.PluginSettings[] memory pluginSettings = new DAOFactory.PluginSettings[](1);
         pluginSettings[0] = DAOFactory.PluginSettings(
             PluginSetupRef(tag, PluginRepo(l2TokenVotingSetupRef)),
-            pluginSettingsData
+            abi.encode(votingSettings, tokenSettings, mintSettings, bridgeDAOSettings)
         );
 
         daoFactory.createDao(daoSettings, pluginSettings);

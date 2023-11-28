@@ -149,7 +149,7 @@ abstract contract L1TokenVotingTest is AragonTest {
         );
 
         L2MajorityVotingBase.BridgeDAOSettings memory bridgeDAOSettings = L2MajorityVotingBase
-            .BridgeDAOSettings(address(dao), address(plugin), l2Bridge);
+            .BridgeDAOSettings(address(dao), address(plugin), l2Bridge, 1);
 
         l2setup = new L2TokenVotingSetup(l2governanceERC20Base, governanceWrappedERC20Base);
         bytes memory setupData = abi.encode(
@@ -189,7 +189,6 @@ abstract contract L1TokenVotingTest is AragonTest {
         uint64 _startDate = uint64(block.timestamp);
         uint64 _endDate = uint64(block.timestamp + 5000);
         L1MajorityVotingBase.VoteOption _voteOption = L1MajorityVotingBase.VoteOption.Yes;
-        bool _tryEarlyExecution = true;
         uint256 proposalId = plugin.createProposal{value: 0.5 ether}(
             _metadata,
             _actions,
@@ -198,6 +197,11 @@ abstract contract L1TokenVotingTest is AragonTest {
             _endDate,
             _voteOption
         );
+
+        vm.warp(block.timestamp + 5000);
+        vm.roll(block.number + 2);
+
+        plugin.execute(proposalId);
 
         (
             bool open,
@@ -211,7 +215,7 @@ abstract contract L1TokenVotingTest is AragonTest {
         (uint16 chainId, address _bridge, address _dao, address _childPlugin) = plugin
             .bridgeSettings();
 
-        assertEq(_bridge, address(l1Bridge), "Bridge is not properly set");
+        assertEq(_bridge, address(l1Bridge), "L1 Bridge is not properly set");
         vm.stopPrank();
     }
 }

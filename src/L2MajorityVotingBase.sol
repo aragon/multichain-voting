@@ -174,6 +174,7 @@ abstract contract L2MajorityVotingBase is
         address parentDAO;
         address parentPlugin;
         ILayerZeroEndpoint lzBridge;
+        uint16 destinationLzChain;
     }
 
     /// @notice The [ERC-165](https://eips.ethereum.org/EIPS/eip-165) interface ID of the contract.

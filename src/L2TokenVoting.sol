@@ -57,7 +57,7 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase, NonblockingLzApp {
             _bridgeDAOSettings.parentPlugin,
             address(this)
         );
-        _setTrustedRemoteAddress(1, remoteAndLocalAddresses);
+        _setTrustedRemoteAddress(_bridgeDAOSettings.destinationLzChain, remoteAndLocalAddresses);
 
         emit MembershipContractAnnounced({definingContract: address(_token)});
     }
