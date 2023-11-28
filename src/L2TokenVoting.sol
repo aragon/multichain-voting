@@ -227,12 +227,10 @@ contract L2TokenVoting is IMembership, L2MajorityVotingBase, NonblockingLzApp {
         uint64,
         bytes memory _payload
     ) internal override {
-        (
-            uint256 _parentProposalId,
-            uint64 _startDate,
-            uint64 _endDate,
-            bool _tryEarlyExecution
-        ) = abi.decode(_payload, (uint256, uint64, uint64, bool));
+        (uint256 _parentProposalId, uint64 _startDate, uint64 _endDate) = abi.decode(
+            _payload,
+            (uint256, uint64, uint64)
+        );
 
         _createProposal(_parentProposalId, _startDate, _endDate);
     }

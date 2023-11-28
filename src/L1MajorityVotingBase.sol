@@ -11,91 +11,17 @@ import {ProposalUpgradeable} from "@aragon/osx/core/plugin/proposal/ProposalUpgr
 import {PluginUUPSUpgradeable} from "@aragon/osx/core/plugin/PluginUUPSUpgradeable.sol";
 import {IDAO} from "@aragon/osx/core/dao/IDAO.sol";
 import {RATIO_BASE, RatioOutOfBounds} from "@aragon/osx/plugins/utils/Ratio.sol";
-import {IMajorityVoting} from "@aragon/osx/plugins/governance/majority-voting/IMajorityVoting.sol";
+
+// import {IL1MajorityVoting} from "./interfaces/IL1MajorityVoting.sol";
 
 /// @title L1MajorityVotingBase
 /// @author Aragon Association - 2022-2023
 /// @notice The abstract implementation of majority voting plugins.
 ///
-/// ### Parameterization
-///
-/// We define two parameters
-/// $$\texttt{support} = \frac{N_\text{yes}}{N_\text{yes} + N_\text{no}} \in [0,1]$$
-/// and
-/// $$\texttt{participation} = \frac{N_\text{yes} + N_\text{no} + N_\text{abstain}}{N_\text{total}} \in [0,1],$$
-/// where $N_\text{yes}$, $N_\text{no}$, and $N_\text{abstain}$ are the yes, no, and abstain votes that have been cast and $N_\text{total}$ is the total voting power available at proposal creation time.
-///
-/// #### Limit Values: Support Threshold & Minimum Participation
-///
-/// Two limit values are associated with these parameters and decide if a proposal execution should be possible: $\texttt{supportThreshold} \in [0,1]$ and $\texttt{minParticipation} \in [0,1]$.
-///
-/// For threshold values, $>$ comparison is used. This **does not** include the threshold value. E.g., for $\texttt{supportThreshold} = 50\%$, the criterion is fulfilled if there is at least one more yes than no votes ($N_\text{yes} = N_\text{no} + 1$).
-/// For minimum values, $\ge{}$ comparison is used. This **does** include the minimum participation value. E.g., for $\texttt{minParticipation} = 40\%$ and $N_\text{total} = 10$, the criterion is fulfilled if 4 out of 10 votes were casted.
-///
-/// Majority voting implies that the support threshold is set with
-/// $$\texttt{supportThreshold} \ge 50\% .$$
-/// However, this is not enforced by the contract code and developers can make unsafe parameters and only the frontend will warn about bad parameter settings.
-///
-/// ### Execution Criteria
-///
-/// After the vote is closed, two criteria decide if the proposal passes.
-///
-/// #### The Support Criterion
-///
-/// For a proposal to pass, the required ratio of yes and no votes must be met:
-/// $$(1- \texttt{supportThreshold}) \cdot N_\text{yes} > \texttt{supportThreshold} \cdot N_\text{no}.$$
-/// Note, that the inequality yields the simple majority voting condition for $\texttt{supportThreshold}=\frac{1}{2}$.
-///
-/// #### The Participation Criterion
-///
-/// For a proposal to pass, the minimum voting power must have been cast:
-/// $$N_\text{yes} + N_\text{no} + N_\text{abstain} \ge \texttt{minVotingPower},$$
-/// where $\texttt{minVotingPower} = \texttt{minParticipation} \cdot N_\text{total}$.
-///
-/// ### Vote Replacement Execution
-///
-/// The contract allows votes to be replaced. Voters can vote multiple times and only the latest voteOption is tallied.
-///
-/// ### Early Execution
-///
-/// This contract allows a proposal to be executed early, iff the vote outcome cannot change anymore by more people voting. Accordingly, vote replacement and early execution are /// mutually exclusive options.
-/// The outcome cannot change anymore iff the support threshold is met even if all remaining votes are no votes. We call this number the worst-case number of no votes and define it as
-///
-/// $$N_\text{no, worst-case} = N_\text{no, worst-case} + \texttt{remainingVotes}$$
-///
-/// where
-///
-/// $$\texttt{remainingVotes} = N_\text{total}-\underbrace{(N_\text{yes}+N_\text{no}+N_\text{abstain})}_{\text{turnout}}.$$
-///
-/// We can use this quantity to calculate the worst-case support that would be obtained if all remaining votes are casted with no:
-///
-/// $$
-/// \begin{align*}
-///   \texttt{worstCaseSupport}
-///   &= \frac{N_\text{yes}}{N_\text{yes} + (N_\text{no, worst-case})} \\[3mm]
-///   &= \frac{N_\text{yes}}{N_\text{yes} + (N_\text{no} + \texttt{remainingVotes})} \\[3mm]
-///   &= \frac{N_\text{yes}}{N_\text{yes} +  N_\text{no} + N_\text{total} - (N_\text{yes} + N_\text{no} + N_\text{abstain})} \\[3mm]
-///   &= \frac{N_\text{yes}}{N_\text{total} - N_\text{abstain}}
-/// \end{align*}
-/// $$
-///
-/// In analogy, we can modify [the support criterion](#the-support-criterion) from above to allow for early execution:
-///
-/// $$
-/// \begin{align*}
-///   (1 - \texttt{supportThreshold}) \cdot N_\text{yes}
-///   &> \texttt{supportThreshold} \cdot  N_\text{no, worst-case} \\[3mm]
-///   &> \texttt{supportThreshold} \cdot (N_\text{no} + \texttt{remainingVotes}) \\[3mm]
-///   &> \texttt{supportThreshold} \cdot (N_\text{no} + N_\text{total}-(N_\text{yes}+N_\text{no}+N_\text{abstain})) \\[3mm]
-///   &> \texttt{supportThreshold} \cdot (N_\text{total} - N_\text{yes} - N_\text{abstain})
-/// \end{align*}
-/// $$
-///
 /// Accordingly, early execution is possible when the vote is open, the modified support criterion, and the particicpation criterion are met.
 /// @dev This contract implements the `IMajorityVoting` interface.
 /// @custom:security-contact sirt@aragon.org
 abstract contract L1MajorityVotingBase is
-    IMajorityVoting,
     Initializable,
     ERC165Upgradeable,
     PluginUUPSUpgradeable,
@@ -103,24 +29,36 @@ abstract contract L1MajorityVotingBase is
 {
     using SafeCastUpgradeable for uint256;
 
-    /// @notice The different voting modes available.
-    /// @param Standard In standard mode, early execution and vote replacement are disabled.
-    /// @param EarlyExecution In early execution mode, a proposal can be executed early before the end date if the vote outcome cannot mathematically change by more voters voting.
-    /// @param VoteReplacement In vote replacement mode, voters can change their vote multiple times and only the latest vote option is tallied.
-    enum VotingMode {
-        Standard,
-        EarlyExecution,
-        VoteReplacement
+    /// @notice Vote options that a voter can chose from.
+    /// @param None The default option state of a voter indicating the absence from the vote. This option neither influences support nor participation.
+    /// @param Abstain This option does not influence the support but counts towards participation.
+    /// @param Yes This option increases the support and counts towards participation.
+    /// @param No This option decreases the support and counts towards participation.
+    enum VoteOption {
+        None,
+        Abstain,
+        Yes,
+        No
     }
 
+    /// @notice Emitted when a vote is cast by a voter.
+    /// @param proposalId The ID of the proposal.
+    /// @param voter The voter casting the vote.
+    /// @param voteOption The casted vote option.
+    /// @param votingPower The voting power behind this vote.
+    event VoteCast(
+        uint256 indexed proposalId,
+        address indexed voter,
+        VoteOption voteOption,
+        uint256 votingPower
+    );
+
     /// @notice A container for the majority voting settings that will be applied as parameters on proposal creation.
-    /// @param votingMode A parameter to select the vote mode. In standard mode (0), early execution and vote replacement are disabled. In early execution mode (1), a proposal can be executed early before the end date if the vote outcome cannot mathematically change by more voters voting. In vote replacement mode (2), voters can change their vote multiple times and only the latest vote option is tallied.
     /// @param supportThreshold The support threshold value. Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     /// @param minParticipation The minimum participation value. Its value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     /// @param minDuration The minimum duration of the proposal vote in seconds.
     /// @param minProposerVotingPower The minimum voting power required to create a proposal.
     struct VotingSettings {
-        VotingMode votingMode;
         uint32 supportThreshold;
         uint32 minParticipation;
         uint64 minDuration;
@@ -150,20 +88,18 @@ abstract contract L1MajorityVotingBase is
         bool executed;
         ProposalParameters parameters;
         Tally tally;
-        mapping(address => IMajorityVoting.VoteOption) voters;
+        mapping(address => VoteOption) voters;
         IDAO.Action[] actions;
         uint256 allowFailureMap;
     }
 
     /// @notice A container for the proposal parameters at the time of proposal creation.
-    /// @param votingMode A parameter to select the vote mode.
     /// @param supportThreshold The support threshold value. The value has to be in the interval [0, 10^6] defined by `RATIO_BASE = 10**6`.
     /// @param startDate The start date of the proposal vote.
     /// @param endDate The end date of the proposal vote.
     /// @param snapshotBlock The number of the block prior to the proposal creation.
     /// @param minVotingPower The minimum voting power needed.
     struct ProposalParameters {
-        VotingMode votingMode;
         uint32 supportThreshold;
         uint64 startDate;
         uint64 endDate;
@@ -185,7 +121,6 @@ abstract contract L1MajorityVotingBase is
     bytes4 internal constant MAJORITY_VOTING_BASE_INTERFACE_ID =
         this.minDuration.selector ^
             this.minProposerVotingPower.selector ^
-            this.votingMode.selector ^
             this.totalVotingPower.selector ^
             this.getProposal.selector ^
             this.updateVotingSettings.selector ^
@@ -236,13 +171,11 @@ abstract contract L1MajorityVotingBase is
     error ProposalExecutionForbidden(uint256 proposalId);
 
     /// @notice Emitted when the voting settings are updated.
-    /// @param votingMode A parameter to select the vote mode.
     /// @param supportThreshold The support threshold value.
     /// @param minParticipation The minimum participation value.
     /// @param minDuration The minimum duration of the proposal vote in seconds.
     /// @param minProposerVotingPower The minimum voting power required to create a proposal.
     event VotingSettingsUpdated(
-        VotingMode votingMode,
         uint32 supportThreshold,
         uint32 minParticipation,
         uint64 minDuration,
@@ -275,16 +208,14 @@ abstract contract L1MajorityVotingBase is
     {
         return
             _interfaceId == MAJORITY_VOTING_BASE_INTERFACE_ID ||
-            _interfaceId == type(IMajorityVoting).interfaceId ||
             super.supportsInterface(_interfaceId);
     }
 
-    /// @inheritdoc IMajorityVoting
-    function vote(
-        uint256 _proposalId,
-        VoteOption _voteOption,
-        bool _tryEarlyExecution
-    ) public virtual {
+    //// @notice Votes for a vote option and, optionally, executes the proposal.
+    /// @dev `_voteOption`, 1 -> abstain, 2 -> yes, 3 -> no
+    /// @param _proposalId The ID of the proposal.
+    /// @param _voteOption The chosen vote option.
+    function vote(uint256 _proposalId, VoteOption _voteOption) public virtual {
         address account = _msgSender();
 
         if (!_canVote(_proposalId, account, _voteOption)) {
@@ -294,10 +225,11 @@ abstract contract L1MajorityVotingBase is
                 voteOption: _voteOption
             });
         }
-        _vote(_proposalId, _voteOption, account, _tryEarlyExecution);
+        _vote(_proposalId, _voteOption, account);
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @notice Executes a proposal.
+    /// @param _proposalId The ID of the proposal to be executed.
     function execute(uint256 _proposalId) public virtual {
         if (!_canExecute(_proposalId)) {
             revert ProposalExecutionForbidden(_proposalId);
@@ -305,7 +237,10 @@ abstract contract L1MajorityVotingBase is
         _execute(_proposalId);
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @notice Returns whether the account has voted for the proposal.  Note, that this does not check if the account has voting power.
+    /// @param _proposalId The ID of the proposal.
+    /// @param _voter The account address to be checked.
+    /// @return The vote option cast by a voter for a certain proposal.
     function getVoteOption(
         uint256 _proposalId,
         address _voter
@@ -313,7 +248,16 @@ abstract contract L1MajorityVotingBase is
         return proposals[_proposalId].voters[_voter];
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @notice Checks if an account can participate on a proposal vote. This can be because the vote
+    /// - has not started,
+    /// - has ended,
+    /// - was executed, or
+    /// - the voter doesn't have voting powers.
+    /// @param _proposalId The proposal Id.
+    /// @param _voter The account address to be checked.
+    /// @param  _voteOption Whether the voter abstains, supports or opposes the proposal.
+    /// @return Returns true if the account is allowed to vote.
+    /// @dev The function assumes the queried proposal exists.
     function canVote(
         uint256 _proposalId,
         address _voter,
@@ -322,12 +266,16 @@ abstract contract L1MajorityVotingBase is
         return _canVote(_proposalId, _voter, _voteOption);
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @notice Checks if a proposal can be executed.
+    /// @param _proposalId The ID of the proposal to be checked.
+    /// @return True if the proposal can be executed, false otherwise.
     function canExecute(uint256 _proposalId) public view virtual returns (bool) {
         return _canExecute(_proposalId);
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @notice Checks if the support value defined as $$\texttt{support} = \frac{N_\text{yes}}{N_\text{yes}+N_\text{no}}$$ for a proposal vote is greater than the support threshold.
+    /// @param _proposalId The ID of the proposal.
+    /// @return Returns `true` if the  support is greater than the support threshold and `false` otherwise.
     function isSupportThresholdReached(uint256 _proposalId) public view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
@@ -338,7 +286,9 @@ abstract contract L1MajorityVotingBase is
             proposal_.parameters.supportThreshold * proposal_.tally.no;
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @notice Checks if the worst-case support value defined as $$\texttt{worstCaseSupport} = \frac{N_\text{yes}}{ N_\text{total}-N_\text{abstain}}$$ for a proposal vote is greater than the support threshold.
+    /// @param _proposalId The ID of the proposal.
+    /// @return Returns `true` if the worst-case support is greater than the support threshold and `false` otherwise.
     function isSupportThresholdReachedEarly(
         uint256 _proposalId
     ) public view virtual returns (bool) {
@@ -355,7 +305,9 @@ abstract contract L1MajorityVotingBase is
             proposal_.parameters.supportThreshold * noVotesWorstCase;
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @notice Checks if the participation value defined as $$\texttt{participation} = \frac{N_\text{yes}+N_\text{no}+N_\text{abstain}}{N_\text{total}}$$ for a proposal vote is greater or equal than the minimum participation value.
+    /// @param _proposalId The ID of the proposal.
+    /// @return Returns `true` if the participation is greater than the minimum participation and `false` otherwise.
     function isMinParticipationReached(uint256 _proposalId) public view virtual returns (bool) {
         Proposal storage proposal_ = proposals[_proposalId];
 
@@ -366,12 +318,14 @@ abstract contract L1MajorityVotingBase is
             proposal_.parameters.minVotingPower;
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @notice Returns the support threshold parameter stored in the voting settings.
+    /// @return The support threshold parameter.
     function supportThreshold() public view virtual returns (uint32) {
         return votingSettings.supportThreshold;
     }
 
-    /// @inheritdoc IMajorityVoting
+    /// @notice Returns the minimum participation parameter stored in the voting settings.
+    /// @return The minimum participation parameter.
     function minParticipation() public view virtual returns (uint32) {
         return votingSettings.minParticipation;
     }
@@ -386,12 +340,6 @@ abstract contract L1MajorityVotingBase is
     /// @return The minimum voting power required to create a proposal.
     function minProposerVotingPower() public view virtual returns (uint256) {
         return votingSettings.minProposerVotingPower;
-    }
-
-    /// @notice Returns the vote mode stored in the voting settings.
-    /// @return The vote mode parameter.
-    function votingMode() public view virtual returns (VotingMode) {
-        return votingSettings.votingMode;
     }
 
     /// @notice Returns the total voting power checkpointed for a specific block number.
@@ -447,7 +395,6 @@ abstract contract L1MajorityVotingBase is
     /// @param _startDate The start date of the proposal vote. If 0, the current timestamp is used and the vote starts immediately.
     /// @param _endDate The end date of the proposal vote. If 0, `_startDate + minDuration` is used.
     /// @param _voteOption The chosen vote option to be casted on proposal creation.
-    /// @param _tryEarlyExecution If `true`,  early execution is tried after the vote cast. The call does not revert if early execution is not possible.
     /// @return proposalId The ID of the proposal.
     function createProposal(
         bytes calldata _metadata,
@@ -455,20 +402,13 @@ abstract contract L1MajorityVotingBase is
         uint256 _allowFailureMap,
         uint64 _startDate,
         uint64 _endDate,
-        VoteOption _voteOption,
-        bool _tryEarlyExecution
+        VoteOption _voteOption
     ) external payable virtual returns (uint256 proposalId);
 
     /// @notice Internal function to cast a vote. It assumes the queried vote exists.
     /// @param _proposalId The ID of the proposal.
     /// @param _voteOption The chosen vote option to be casted on the proposal vote.
-    /// @param _tryEarlyExecution If `true`,  early execution is tried after the vote cast. The call does not revert if early execution is not possible.
-    function _vote(
-        uint256 _proposalId,
-        VoteOption _voteOption,
-        address _voter,
-        bool _tryEarlyExecution
-    ) internal virtual;
+    function _vote(uint256 _proposalId, VoteOption _voteOption, address _voter) internal virtual;
 
     /// @notice Internal function to execute a vote. It assumes the queried proposal exists.
     /// @param _proposalId The ID of the proposal.
@@ -507,10 +447,6 @@ abstract contract L1MajorityVotingBase is
         }
 
         if (_isProposalOpen(proposal_)) {
-            // Early execution
-            if (proposal_.parameters.votingMode != VotingMode.EarlyExecution) {
-                return false;
-            }
             if (!isSupportThresholdReachedEarly(_proposalId)) {
                 return false;
             }
@@ -566,7 +502,6 @@ abstract contract L1MajorityVotingBase is
         votingSettings = _votingSettings;
 
         emit VotingSettingsUpdated({
-            votingMode: _votingSettings.votingMode,
             supportThreshold: _votingSettings.supportThreshold,
             minParticipation: _votingSettings.minParticipation,
             minDuration: _votingSettings.minDuration,

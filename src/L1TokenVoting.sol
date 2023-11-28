@@ -8,16 +8,14 @@ import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20
 import {IMembership} from "@aragon/osx/core/plugin/membership/IMembership.sol";
 import {IDAO} from "@aragon/osx/core/dao/IDAO.sol";
 import {RATIO_BASE, _applyRatioCeiled} from "@aragon/osx/plugins/utils/Ratio.sol";
-import {IMajorityVoting} from "@aragon/osx/plugins/governance/majority-voting/IMajorityVoting.sol";
 
 import {L1MajorityVotingBase} from "./L1MajorityVotingBase.sol";
-import {ILayerZeroSender} from "./interfaces/ILayerZeroSender.sol";
 import {NonblockingLzApp} from "./lzApp/NonblockingLzApp.sol";
 
 /// @title L1TokenVoting
 /// @author Aragon Association - 2021-2023
 /// @notice The majority voting implementation using an [OpenZeppelin `Votes`](https://docs.openzeppelin.com/contracts/4.x/api/governance#Votes) compatible governance token.
-/// @dev This contract inherits from `L1MajorityVotingBase` and implements the `IMajorityVoting` interface.
+/// @dev This contract inherits from `L1MajorityVotingBase` and implements the `IL2MajorityVoting` interface.
 /// @custom:security-contact sirt@aragon.org
 contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
     using SafeCastUpgradeable for uint256;
@@ -81,8 +79,7 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
         uint256 _allowFailureMap,
         uint64 _startDate,
         uint64 _endDate,
-        VoteOption _voteOption,
-        bool _tryEarlyExecution
+        VoteOption _voteOption
     ) external payable override returns (uint256 proposalId) {
         // Check that either `_msgSender` owns enough tokens or has enough voting power from being a delegatee.
         {
@@ -128,7 +125,6 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
         proposal_.parameters.startDate = _startDate;
         proposal_.parameters.endDate = _endDate;
         proposal_.parameters.snapshotBlock = snapshotBlock.toUint64();
-        proposal_.parameters.votingMode = votingMode();
         proposal_.parameters.supportThreshold = supportThreshold();
         proposal_.parameters.minVotingPower = _applyRatioCeiled(
             totalVotingPower_,
@@ -141,12 +137,7 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
         }
 
         // Bridge the proposal over to the L2
-        bytes memory encodedMessage = abi.encode(
-            proposalId,
-            _startDate,
-            _endDate,
-            _tryEarlyExecution
-        );
+        bytes memory encodedMessage = abi.encode(proposalId, _startDate, _endDate);
 
         if (
             bridgeSettings.bridge != address(0) ||
@@ -171,7 +162,7 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
         }
 
         if (_voteOption != VoteOption.None) {
-            vote(proposalId, _voteOption, _tryEarlyExecution);
+            vote(proposalId, _voteOption);
         }
     }
 
@@ -198,12 +189,7 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
     }
 
     /// @inheritdoc L1MajorityVotingBase
-    function _vote(
-        uint256 _proposalId,
-        VoteOption _voteOption,
-        address _voter,
-        bool _tryEarlyExecution
-    ) internal override {
+    function _vote(uint256 _proposalId, VoteOption _voteOption, address _voter) internal override {
         Proposal storage proposal_ = proposals[_proposalId];
 
         // This could re-enter, though we can assume the governance token is not malicious
@@ -236,10 +222,6 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
             voteOption: _voteOption,
             votingPower: votingPower
         });
-
-        if (_tryEarlyExecution && _canExecute(_proposalId)) {
-            _execute(_proposalId);
-        }
     }
 
     /// @inheritdoc L1MajorityVotingBase
@@ -266,10 +248,7 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
         }
 
         // The voter has already voted but vote replacment is not allowed.
-        if (
-            proposal_.voters[_account] != VoteOption.None &&
-            proposal_.parameters.votingMode != VotingMode.VoteReplacement
-        ) {
+        if (proposal_.voters[_account] != VoteOption.None) {
             return false;
         }
 
@@ -294,19 +273,19 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
         emit VoteCast({
             proposalId: proposalId,
             voter: address(0),
-            voteOption: IMajorityVoting.VoteOption.Yes,
+            voteOption: L1MajorityVotingBase.VoteOption.Yes,
             votingPower: tally.yes
         });
         emit VoteCast({
             proposalId: proposalId,
             voter: address(0),
-            voteOption: IMajorityVoting.VoteOption.No,
+            voteOption: L1MajorityVotingBase.VoteOption.No,
             votingPower: tally.no
         });
         emit VoteCast({
             proposalId: proposalId,
             voter: address(0),
-            voteOption: IMajorityVoting.VoteOption.Abstain,
+            voteOption: L1MajorityVotingBase.VoteOption.Abstain,
             votingPower: tally.abstain
         });
     }
@@ -314,5 +293,5 @@ contract L1TokenVoting is IMembership, L1MajorityVotingBase, NonblockingLzApp {
     /// @dev This empty reserved space is put in place to allow future versions to add new
     /// variables without shifting down storage in the inheritance chain.
     /// https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
-    uint256[49] private __gap;
+    uint256[47] private __gap;
 }

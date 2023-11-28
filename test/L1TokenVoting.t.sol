@@ -71,13 +71,7 @@ abstract contract L1TokenVotingTest is AragonTest {
         );
 
         L1MajorityVotingBase.VotingSettings memory votingSettings = L1MajorityVotingBase
-            .VotingSettings(
-                L1MajorityVotingBase.VotingMode.EarlyExecution,
-                uint32(0),
-                uint32(1),
-                61 minutes,
-                uint256(0)
-            );
+            .VotingSettings(uint32(0), uint32(1), 61 minutes, uint256(0));
 
         L1TokenVotingSetup.TokenSettings memory tokenSettings = L1TokenVotingSetup.TokenSettings(
             address(l1governanceERC20Base),
@@ -194,7 +188,7 @@ abstract contract L1TokenVotingTest is AragonTest {
         uint256 _allowFailureMap = 0;
         uint64 _startDate = uint64(block.timestamp);
         uint64 _endDate = uint64(block.timestamp + 5000);
-        L1MajorityVotingBase.VoteOption _voteOption = IMajorityVoting.VoteOption.Yes;
+        L1MajorityVotingBase.VoteOption _voteOption = L1MajorityVotingBase.VoteOption.Yes;
         bool _tryEarlyExecution = true;
         uint256 proposalId = plugin.createProposal{value: 0.5 ether}(
             _metadata,
@@ -202,8 +196,7 @@ abstract contract L1TokenVotingTest is AragonTest {
             _allowFailureMap,
             _startDate,
             _endDate,
-            _voteOption,
-            _tryEarlyExecution
+            _voteOption
         );
 
         (
@@ -237,13 +230,7 @@ contract L1TokenVotingInitializeTest is L1TokenVotingTest {
 
     function test_reverts_if_reinitialized() public {
         L1MajorityVotingBase.VotingSettings memory votingSettings = L1MajorityVotingBase
-            .VotingSettings(
-                L1MajorityVotingBase.VotingMode.VoteReplacement,
-                uint32(0),
-                uint32(1),
-                uint64(1),
-                uint256(0)
-            );
+            .VotingSettings(uint32(0), uint32(1), uint64(1), uint256(0));
         vm.expectRevert("Initializable: contract is already initialized");
         plugin.initialize(dao, votingSettings, l1governanceERC20Base);
     }
@@ -270,7 +257,7 @@ contract L1TokenVotingInitializeTest is L1TokenVotingTest {
         uint64 _startDate = uint64(block.timestamp);
         uint64 _endDate = uint64(block.timestamp + 5000);
 
-        L1MajorityVotingBase.VoteOption _voteOption = IMajorityVoting.VoteOption.Yes;
+        L1MajorityVotingBase.VoteOption _voteOption = L1MajorityVotingBase.VoteOption.Yes;
         bool _tryEarlyExecution = true;
         uint256 proposalId = plugin.createProposal{value: 0.5 ether}(
             _metadata,
@@ -278,8 +265,7 @@ contract L1TokenVotingInitializeTest is L1TokenVotingTest {
             _allowFailureMap,
             _startDate,
             _endDate,
-            _voteOption,
-            _tryEarlyExecution
+            _voteOption
         );
 
         assertEq(proposalId, uint256(1), "ProposalId is not correct");

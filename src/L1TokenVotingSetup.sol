@@ -288,4 +288,3 @@ contract L1TokenVotingSetup is PluginSetup {
         return success && data.length == 0x20;
     }
 }
-
